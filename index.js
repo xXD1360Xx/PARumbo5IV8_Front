@@ -21,7 +21,7 @@ app.use(cors({
 app.use(express.json());
 
 // Importar rutas
-import usuarioRoutes from './rutas/usuarioRoutes.js'; // Ajusta según tus rutas
+import usuarioRoutes from './rutas/rutasUsuarios.js'; // Ajusta según tus rutas
 app.use('/api', usuarioRoutes);
 
 // Health check
