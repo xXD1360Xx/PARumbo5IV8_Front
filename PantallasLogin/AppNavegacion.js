@@ -9,7 +9,7 @@ import PantallaVerificarID from './PantallaVerificarID';
 import PantallaMandarCorreo from './PantallaMandarCorreo';
 import PantallaPrincipal from '../PantallasMenu/PantallaPrincipal';
 import PantallaResultados from '../PantallasMenu/PantallaResultados';
-import PantallaBuscarUsuario from '../PantallasMenu/PantallaBuscarUsuariol';
+import PantallaBuscarUsuario from '../PantallasMenu/PantallaBuscarUsuario';
 
 const Stack = createNativeStackNavigator();
 

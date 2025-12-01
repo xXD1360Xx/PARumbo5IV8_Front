@@ -1,18 +1,14 @@
-
 import React, { useState } from 'react';
 import { TextInput, Alert, Text, View, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { estilos } from '../estilos/styles';
-import { enviarCodigoCorreo } from '../backend/helpers/email';
-import { detectarBackend } from '../backend/helpers/detectarBackend';
-
-
+import { apiService } from '../servicios/api'; // ✅ Import correcto
 
 export default function PantallaVerificarID({ navigation, route }) {
   const { modo, correo, codigo } = route.params;
   const [codigoIngresado, setCodigoIngresado] = useState('');
-
+  const [reenviando, setReenviando] = useState(false); // ✅ Estado para controlar reenvío
 
   const regresar = () => {
     if (Platform.OS === 'web') {
@@ -31,10 +27,7 @@ export default function PantallaVerificarID({ navigation, route }) {
       );
     }
   };
-  
 
-
-  
   const verificarCodigo = () => {
     const codigoUsuario = (codigoIngresado || '').trim();
     const codigoCorrecto = (codigo || '').toString().trim();
@@ -63,38 +56,56 @@ export default function PantallaVerificarID({ navigation, route }) {
     }
   };
 
-const reenviarCodigo = async () => {
+  const reenviarCodigo = async () => {
+    setReenviando(true);
+    
+    try {
+      // ✅ Usa apiService.enviarCodigo en lugar de enviarCodigoCorreo
+      const resultado = await apiService.enviarCodigo(correo, codigo);
+      const exito = resultado.success || resultado.exito || false;
 
-   const exito = await enviarCodigoCorreo({ correo, codigo });
-
-    if (exito) {
-      navigation.navigate('VerificarID', { modo, correo, codigo });
-      if (Platform.OS === 'web') {
-        alert(`Éxito, se ha reenviado correctamente el código`);
+      if (exito) {
+        const mensaje = 'Se ha reenviado correctamente el código';
+        
+        if (Platform.OS === 'web') {
+          alert(mensaje);
+        } else {
+          Alert.alert(
+            'Éxito reenviando',
+            mensaje,
+            [{ text: 'Continuar' }],
+            { cancelable: false }
+          );
+        }
+        // No necesitas navegar de nuevo a la misma pantalla
       } else {
-        Alert.alert(
-          'Éxito reenviando',
-          `Se ha reenviado correctamente el código`,
-          [{ text: 'Continuar', onPress: () => navigation.navigate('VerificarID', { modo, correo, codigo }) }],
-          { cancelable: false }
-        );
+        const mensajeError = resultado.error || 
+                            `No se pudo reenviar el correo, pero puedes continuar con el código ${codigo}`;
+        
+        if (Platform.OS === 'web') {
+          alert(mensajeError);
+        } else {
+          Alert.alert(
+            'Error reenviando',
+            mensajeError,
+            [{ text: 'Continuar' }],
+            { cancelable: false }
+          );
+        }
       }
-    } else {
+    } catch (error) {
+      console.error("Error al reenviar código:", error);
+      
+      const mensajeError = "Error de conexión. Intenta de nuevo más tarde.";
       if (Platform.OS === 'web') {
-        alert(`No se pudo reenviar el correo, pero puedes continuar con el código ${codigo}`);
+        alert(mensajeError);
       } else {
-        Alert.alert(
-          'Error reenviando',
-          `No se pudo reenviar el correo, pero puedes continuar con el código ${codigo}`,
-          [{ text: 'Continuar', onPress: () => navigation.navigate('VerificarID', { modo, correo, codigo }) }],
-          { cancelable: false }
-        );
+        Alert.alert('Error', mensajeError);
       }
+    } finally {
+      setReenviando(false);
     }
-};
-
-
-
+  };
 
   return (
     <LinearGradient colors={['#000000ff', '#ffffffff', '#000000ff']} style={{ flex: 1 }}>
@@ -108,18 +119,28 @@ const reenviarCodigo = async () => {
           value={codigoIngresado}
           onChangeText={setCodigoIngresado}
           keyboardType="numeric"
+          maxLength={6} // ✅ Limita a 6 dígitos
         />
 
-        <TouchableOpacity onPress={reenviarCodigo}>
-          <Text style={estilos.enlace}>Reenviar código</Text>
+        <TouchableOpacity 
+          onPress={reenviarCodigo} 
+          disabled={reenviando}
+          style={{ opacity: reenviando ? 0.5 : 1 }}>
+          <Text style={estilos.enlace}>
+            {reenviando ? 'Reenviando...' : 'Reenviar código'}
+          </Text>
         </TouchableOpacity>
 
         <View style={estilos.contenedorBotones}>
-          <TouchableOpacity onPress={regresar} style={[estilos.botonChico, { backgroundColor: "#454545ff" }]}>
+          <TouchableOpacity 
+            onPress={regresar} 
+            style={[estilos.botonChico, { backgroundColor: "#454545ff" }]}>
             <Text style={[estilos.textoBotonChico, { fontSize: 20 }]}>Regresar</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={verificarCodigo} style={estilos.botonChico}>
+          <TouchableOpacity 
+            onPress={verificarCodigo} 
+            style={estilos.botonChico}>
             <Text style={[estilos.textoBotonChico, { fontSize: 16 }]}>Verificar código</Text>
           </TouchableOpacity>
         </View>
