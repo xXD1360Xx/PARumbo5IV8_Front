@@ -94,7 +94,7 @@ app.get("/health", async (req, res) => {
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       environment: process.env.ENTORNO || 'development',
-      database: "connected", // Puedes agregar chequeo de BD aquí
+      database: "connected",
       services: {
         sendgrid: process.env.SENDGRID_API_KEY ? "configured" : "not_configured",
         cloudinary: process.env.CLOUDINARY_CLAVE_API ? "configured" : "not_configured"
