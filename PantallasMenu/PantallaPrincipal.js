@@ -1,170 +1,170 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, Alert, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Image, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { estilos } from '../estilos/styles';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiService } from '../servicios/api';
 
-let Sharing;
-if (Platform.OS !== 'web') {
-  Sharing = require('expo-sharing');
-}
+export default function PantallaPrincipal({ navigation }) {
+  const [usuarioInfo, setUsuarioInfo] = useState(null);
+  const [cargando, setCargando] = useState(true);
 
-export default function PantallaPrincipal({ navigation, route }) {
-  const [imageUri, setImageUri] = useState(null);
-  const usuario = route?.params?.usuario || '';
-  const correo = route?.params?.correo || '';
-  const contrasena = route?.params?.contrasena || '';
-  
-const seleccionarImagen = async () => {
-  try {
-    if (Platform.OS !== 'web') {
-      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permiso.granted) {
-        Alert.alert('Permiso denegado', 'Se necesita acceso a tus fotos');
-        return;
+  useEffect(() => {
+    const verificarSesion = async () => {
+      try {
+        const sesionActiva = await AsyncStorage.getItem('sesionActiva');
+        if (sesionActiva !== 'true') {
+          navigation.navigate('Login');
+          return;
+        }
+        await cargarPerfil();
+      } catch (error) {
+        console.error('Error verificando sesión:', error);
+        navigation.navigate('Login');
       }
-    }
+    };
+    verificarSesion();
+  }, []);
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const uri = result.assets?.[0]?.uri;
-      if (uri) setImageUri(uri);
-    }
-  } catch (error) {
-    Alert.alert('Error', error.message);
-  }
-};
-
-
-const compartir = async () => {
-  const compartirValidado = async () => {
-    if (!Sharing || !imageUri) return;
+  const cargarPerfil = async () => {
     try {
-      await Sharing.shareAsync(imageUri);
+      setCargando(true);
+      const datos = await apiService.obtenerMiPerfil();
+      
+      if (datos.exito) {
+        setUsuarioInfo(datos.usuario);
+        await AsyncStorage.setItem('usuarioInfo', JSON.stringify(datos.usuario));
+      } else {
+        Alert.alert('Error', 'No se pudo cargar tu perfil');
+        await AsyncStorage.removeItem('sesionActiva');
+        navigation.navigate('Login');
+      }
     } catch (error) {
-      Alert.alert('Error al compartir', error.message);
+      console.error('Error cargando perfil:', error);
+      Alert.alert('Error', 'Error de conexión con el servidor');
+    } finally {
+      setCargando(false);
     }
   };
 
-  if (Platform.OS === 'web') {
-    alert("No se puede compartir la imagen desde Expo web :(");
-    return;
-  }
+  const verMisResultados = () => {
+    if (!usuarioInfo) return;
+    navigation.navigate('Resultados', {  // ✅ CORREGIDO: 'Resultados' no 'PantallaResultados'
+      usuarioId: usuarioInfo.id,
+      nombreUsuario: usuarioInfo.nombre 
+    });
+  };
 
-if (!imageUri) {
+  const buscarOtroUsuario = () => {
+    navigation.navigate('BusdarUsuario'); // ✅ CORREGIDO: 'BusdarUsuario' no 'PantallaBuscarUsuario'
+  };
+
+  const cerrarSesion = async () => {
     Alert.alert(
-      'Primero selecciona una imagen',
-      '¿Deseas abrir el explorador de archivos?',
+      'Cerrar sesión',
+      '¿Estás seguro de que quieres salir?',
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
           text: 'Sí', 
           onPress: async () => {
             try {
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                quality: 1,
-              });
-              if (!result.canceled) {
-                setImageUri(result.assets[0].uri);
-                await compartirValidado(); 
-              }
+              await apiService.logout();
+              await AsyncStorage.clear();
+              navigation.replace('Login');
             } catch (error) {
-              Alert.alert('Error al abrir el explorador', error.message);
+              console.error('Error cerrando sesión:', error);
+              await AsyncStorage.clear();
+              navigation.replace('Login');
             }
-          },
+          }
         },
       ]
     );
-    return;
-  }
+  };
 
-  await compartirValidado();
-};
-
-
-
-const cerrarSesion = () => {
-  if (Platform.OS === 'web') {
-    if (window.confirm("¿Deseas salir?")) {
-      navigation.replace('Login');
-    }
-  } else {
-    Alert.alert(
-      'Cerrar sesión',
-      '¿Deseas salir?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sí', onPress: () => navigation.replace('Login') },
-      ]
+  if (cargando) {
+    return (
+      <View style={[estilos.fondo, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={{ color: '#fff', marginTop: 20 }}>Cargando perfil...</Text>
+      </View>
     );
   }
-};
 
+  if (!usuarioInfo) {
+    return null;
+  }
 
   return (
-    <View style={estilos.fondo}>
+    <ScrollView style={estilos.fondo}>
       <View style={estilos.contenedorPrincipal}>
-        <Text style={estilos.titulo}>Bienvenido {usuario}</Text>
-        {correo ? <Text style={estilos.subtitulo}>{correo}</Text> : null}
-
-        <TouchableOpacity onPress={seleccionarImagen} activeOpacity={0.8}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={nuevoEstilo.imagenPerfil} />
-          ) : (
-            <View style={nuevoEstilo.contenedorImagen}>
-              <Image
-                source={{
-                  uri: 'https://static.vecteezy.com/system/resources/previews/005/005/840/non_2x/user-icon-in-trendy-flat-style-isolated-on-grey-background-user-symbol-for-your-web-site-design-logo-app-ui-illustration-eps10-free-vector.jpg',
-                }}
-                style={nuevoEstilo.imagenDefault}
-              />
-            </View>
+        {/* Encabezado con perfil */}
+        <View style={{ alignItems: 'center', marginBottom: 30 }}>
+          <Image
+            source={{
+              uri: usuarioInfo.foto_perfil || 'https://res.cloudinary.com/de8qn7bm1/image/upload/v1762320292/Default_pfp.svg_j0obpx.png'
+            }}
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: 60,
+              borderWidth: 3,
+              borderColor: '#fff',
+              marginBottom: 15
+            }}
+          />
+          <Text style={estilos.titulo}>{usuarioInfo.nombre || usuarioInfo.nombre_usuario}</Text>
+          <Text style={estilos.subtitulo}>@{usuarioInfo.nombre_usuario}</Text>
+          <Text style={[estilos.subtitulo, { fontSize: 14 }]}>{usuarioInfo.email}</Text>
+          {usuarioInfo.biografia && (
+            <Text style={{ color: '#ccc', textAlign: 'center', marginTop: 10, paddingHorizontal: 20 }}>
+              {usuarioInfo.biografia}
+            </Text>
           )}
+        </View>
+
+        {/* Botones de acción principal */}
+        {/* ❌ ELIMINADO: Botón de "Ver/Editar mi perfil" (ya estamos en el perfil) */}
+
+        <TouchableOpacity 
+          style={[estilos.botonGrande, { marginBottom: 15 }]} 
+          onPress={verMisResultados}
+        >
+          <Text style={estilos.textoBotonGrande}>📊 Ver mis resultados</Text>
         </TouchableOpacity>
 
-        <View style={estilos.contenedorBotones}>
-          <TouchableOpacity style={estilos.botonChico} onPress={compartir}>
-            <Text style={estilos.textoBotonChico}>Compartir</Text>
-          </TouchableOpacity>
+        <TouchableOpacity 
+          style={[estilos.botonGrande, { marginBottom: 15 }]} 
+          onPress={buscarOtroUsuario}
+        >
+          <Text style={estilos.textoBotonGrande}>🔍 Buscar otro usuario</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[estilos.botonChico, { backgroundColor: '#b00020' }]}
-            onPress={cerrarSesion}
-          >
-            <Text style={estilos.textoBotonChico}>Cerrar sesión</Text>
+        {/* Estadísticas rápidas */}
+        <View style={{
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          borderRadius: 10,
+          padding: 20,
+          marginVertical: 20
+        }}>
+          <Text style={{ color: '#fff', fontSize: 18, marginBottom: 10, textAlign: 'center' }}>
+            📈 Mi actividad
+          </Text>
+          <TouchableOpacity onPress={() => cargarPerfil()}>
+            <Text style={{ color: '#4fc3f7', textAlign: 'center' }}>
+              Actualizar datos
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Botón cerrar sesión */}
+        <TouchableOpacity 
+          style={[estilos.botonChico, { backgroundColor: '#b00020', marginTop: 20 }]} 
+          onPress={cerrarSesion}
+        >
+          <Text style={estilos.textoBotonChico}>🚪 Cerrar sesión</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 }
-
-const nuevoEstilo = {
-  imagenPerfil: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    marginTop: 20,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  imagenDefault: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-  },
-  contenedorImagen: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
-  },
-};

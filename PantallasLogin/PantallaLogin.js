@@ -5,13 +5,10 @@ import { estilos } from '../estilos/styles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { autenticarConGoogle } from '../backend/helpers/google';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiService } from '../servicios/api';
 
 WebBrowser.maybeCompleteAuthSession();
-
-// URL de tu backend - cambia por la correcta
-const URL_BACKEND = 'http://localhost:3001'; // o la URL de tu servidor
 
 export default function PantallaLogin({ navigation }) {
   const [usuario, setUsuario] = useState('');
@@ -32,26 +29,17 @@ export default function PantallaLogin({ navigation }) {
     setCargando(true);
 
     try {
-      const respuesta = await fetch(`${URL_BACKEND}/autenticacion/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          identificador: usuario,
-          contrasena: contrasena
-        }),
-      });
+      // ✅ USAR apiService
+      const datos = await apiService.login(usuario, contrasena);
 
-      const datos = await respuesta.json();
-
-      if (datos.exito || datos.success) {
+      if (datos.exito) {
         // Guardar información de sesión
-        const usuarioInfo = datos.usuario || datos.user;
+        const usuarioInfo = datos.usuario;
         
         await AsyncStorage.setItem('sesionActiva', 'true');
         await AsyncStorage.setItem('usuarioId', usuarioInfo.id.toString());
         await AsyncStorage.setItem('usuarioInfo', JSON.stringify(usuarioInfo));
+        await AsyncStorage.setItem('token', datos.token || 'token_guardado'); // Guardar token si viene en la respuesta
         
         if (Platform.OS === 'web') {
           alert('Inicio de sesión exitoso');
@@ -64,7 +52,6 @@ export default function PantallaLogin({ navigation }) {
           ]);
         }
         
-        // Navegar al menú principal
         navigation.navigate('MenuPrincipal', { usuario: usuarioInfo });
       } else {
         const mensajeError = datos.error || 'Credenciales incorrectas';
@@ -95,34 +82,43 @@ export default function PantallaLogin({ navigation }) {
     try {
       const resultado = await iniciarGoogle();
       if (resultado?.type === 'success') {
-        // Usar la nueva ruta /autenticacion/google
-        const respuesta = await fetch(`${URL_BACKEND}/autenticacion/google`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            tokenGoogle: resultado.authentication.accessToken
-          }),
-        });
+        setCargando(true);
+        
+        try {
+          // ✅ USAR apiService para Google
+          const datos = await apiService.loginGoogle(resultado.authentication.accessToken);
 
-        const datos = await respuesta.json();
-
-        if (datos.exito) {
-          // Guardar en AsyncStorage
-          await AsyncStorage.setItem('sesionActiva', 'true');
-          await AsyncStorage.setItem('usuarioInfo', JSON.stringify(datos.usuario));
-          
-          console.log('Usuario autenticado con Google:', datos.usuario);
-          navigation.navigate('MenuPrincipal', { usuario: datos.usuario });
-        } else {
-          Alert.alert('Error', datos.error || 'Error al iniciar sesión con Google');
+          if (datos.exito) {
+            // Guardar en AsyncStorage
+            await AsyncStorage.setItem('sesionActiva', 'true');
+            await AsyncStorage.setItem('usuarioInfo', JSON.stringify(datos.usuario));
+            await AsyncStorage.setItem('usuarioId', datos.usuario.id.toString());
+            await AsyncStorage.setItem('token', datos.token || 'token_google');
+            
+            console.log('Usuario autenticado con Google:', datos.usuario);
+            navigation.navigate('MenuPrincipal', { usuario: datos.usuario });
+          } else {
+            Alert.alert('Error', datos.error || 'Error al iniciar sesión con Google');
+          }
+        } catch (error) {
+          console.error('Error en login Google:', error);
+          Alert.alert('Error', 'Error al conectar con el servidor');
+        } finally {
+          setCargando(false);
         }
       }
     } catch (error) {
       console.error('Error iniciando sesión con Google:', error);
       Alert.alert('Error', 'No se pudo iniciar sesión con Google.');
     }
+  };
+
+  const manejarRecuperarContrasena = () => {
+    navigation.navigate('MandarCorreo', { modo: 'recuperar' });
+  };
+
+  const manejarCrearCuenta = () => {
+    navigation.navigate('MandarCorreo', { modo: 'crear' });
   };
 
   // Verificar si ya hay una sesión activa al cargar
@@ -133,8 +129,24 @@ export default function PantallaLogin({ navigation }) {
         const usuarioInfo = await AsyncStorage.getItem('usuarioInfo');
         
         if (sesionActiva === 'true' && usuarioInfo) {
-          // Si hay sesión activa, navegar directamente al menú principal
-          navigation.navigate('MenuPrincipal', { usuario: JSON.parse(usuarioInfo) });
+          // Verificar token si existe
+          const token = await AsyncStorage.getItem('token');
+          if (token) {
+            try {
+              const verificado = await apiService.verificarToken();
+              if (verificado.exito) {
+                // Token válido, navegar directamente
+                navigation.navigate('MenuPrincipal', { usuario: JSON.parse(usuarioInfo) });
+                return;
+              }
+            } catch (error) {
+              console.log('Token inválido o expirado, requiere nuevo login');
+              // Limpiar datos de sesión
+              await AsyncStorage.removeItem('sesionActiva');
+              await AsyncStorage.removeItem('usuarioInfo');
+              await AsyncStorage.removeItem('token');
+            }
+          }
         }
       } catch (error) {
         console.error('Error verificando sesión:', error);
@@ -146,7 +158,7 @@ export default function PantallaLogin({ navigation }) {
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      document.title = 'Inicio de sesión';
+      document.title = 'Inicio de sesión - Rumbo';
     }
   }, []);
 
@@ -165,6 +177,7 @@ export default function PantallaLogin({ navigation }) {
           onChangeText={setUsuario}
           autoCapitalize="none"
           editable={!cargando}
+          placeholderTextColor="#666"
         />
 
         <TextInput
@@ -174,6 +187,7 @@ export default function PantallaLogin({ navigation }) {
           onChangeText={setContrasena}
           secureTextEntry
           editable={!cargando}
+          placeholderTextColor="#666"
         />
 
         <TouchableOpacity 
@@ -191,14 +205,14 @@ export default function PantallaLogin({ navigation }) {
 
         <View style={{ marginTop: 10, alignItems: 'center' }}>
           <TouchableOpacity 
-            onPress={() => navigation.navigate('MandarCorreo', { modo: 'recuperar' })}
+            onPress={manejarRecuperarContrasena}
             disabled={cargando}
           >
             <Text style={estilos.enlace}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={() => navigation.navigate('MandarCorreo', { modo: 'crear' })}
+            onPress={manejarCrearCuenta}
             disabled={cargando}
           >
             <Text style={estilos.enlace}>Crear nueva cuenta</Text>
@@ -222,6 +236,12 @@ export default function PantallaLogin({ navigation }) {
             <Text style={estilos.textoBotonRed}>Continuar con Google</Text>
           </TouchableOpacity>
         </View>
+
+        {cargando && (
+          <View style={estilos.contenedorCargando}>
+            <Text style={estilos.textoCargando}>Conectando con el servidor...</Text>
+          </View>
+        )}
       </SafeAreaView>
     </LinearGradient>
   );
