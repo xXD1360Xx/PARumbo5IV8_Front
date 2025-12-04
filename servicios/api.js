@@ -1,490 +1,310 @@
 const API_BASE_URL = 'https://site--parumbo5iv8--p9qqmcg2z56m.code.run/api';
-
 console.log('🔗 [API] URL base configurada:', API_BASE_URL);
 
-export const apiService = {
-  // 🔐 AUTENTICACIÓN
-  login: async (identificador, contrasena) => {
-    console.log('🔍 [API login] Enviando a:', `${API_BASE_URL}/autenticacion/login`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/autenticacion/login`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ identificador, contrasena }),
-      });
-      
-      console.log('📡 [API login] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API login] Respuesta:', { exito: data.exito, error: data.error });
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API login] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
+// Cliente API con manejo de token
+class APIClient {
+  constructor() {
+    this.baseURL = API_BASE_URL;
+    this.token = null;
+  }
 
-  registro: async (datosUsuario) => {
-    console.log('🔍 [API registro] Enviando a:', `${API_BASE_URL}/autenticacion/registro`);
+  // Obtener token de AsyncStorage
+  async getToken() {
+    if (this.token) return this.token;
     
     try {
-      const response = await fetch(`${API_BASE_URL}/autenticacion/registro`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(datosUsuario),
-      });
-      
-      console.log('📡 [API registro] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API registro] Respuesta:', { exito: data.exito, error: data.error });
-      return data;
-      
+      const AsyncStorage = await import('@react-native-async-storage/async-storage');
+      const storedToken = await AsyncStorage.default.getItem('token');
+      this.token = storedToken;
+      return this.token;
     } catch (error) {
-      console.error('❌ [API registro] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
+      console.warn('⚠️ No se pudo obtener token de AsyncStorage');
+      return null;
     }
-  },
+  }
 
-  // 🔴 ¡¡¡CRÍTICO!!! Tu backend espera "access_token", NO "tokenGoogle"
-  loginGoogle: async (accessToken) => {
-    console.log('🔍 [API Google] === INICIANDO ===');
-    console.log('🔗 URL:', `${API_BASE_URL}/autenticacion/google`);
-    console.log('🔑 Token (primeros 30):', accessToken?.substring(0, 30) + '...');
+  // Headers comunes
+  async getHeaders(contentType = 'application/json') {
+    const token = await this.getToken();
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    if (contentType) {
+      headers['Content-Type'] = contentType;
+    }
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    return headers;
+  }
+
+  // Request genérico
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const headers = await this.getHeaders(options.contentType);
+    
+    console.log(`🔍 [API] ${options.method || 'GET'} ${url}`);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/autenticacion/google`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers,
         },
-        body: JSON.stringify({ 
-          access_token: accessToken  // ← ¡IMPORTANTE! Backend espera access_token
-        }),
       });
       
-      console.log('📡 [API Google] Status:', response.status);
-      console.log('📡 [API Google] Status text:', response.statusText);
+      console.log(`📡 [API] ${endpoint} - Status:`, response.status);
       
-      // Leer respuesta como texto primero para debug
+      // Si es 401 (Unauthorized), limpiar token
+      if (response.status === 401) {
+        this.clearToken();
+      }
+      
       const responseText = await response.text();
-      console.log('📥 [API Google] Respuesta cruda:', responseText.substring(0, 200));
       
+      // Intentar parsear como JSON
+      let data;
       try {
-        const data = JSON.parse(responseText);
-        console.log('✅ [API Google] Respuesta parseada:', {
-          exito: data.exito,
-          error: data.error,
-          tieneUsuario: !!data.usuario,
-          tieneToken: !!data.token
-        });
-        return data;
+        data = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
-        console.error('❌ [API Google] Error parseando JSON:', parseError);
-        console.error('📄 Respuesta recibida:', responseText);
-        return { 
-          exito: false, 
-          error: `Respuesta inválida del servidor: ${responseText.substring(0, 100)}...`
-        };
+        console.error(`❌ [API] Error parseando JSON de ${endpoint}:`, parseError);
+        console.error(`📄 Respuesta:`, responseText.substring(0, 200));
+        data = { exito: false, error: 'Respuesta inválida del servidor' };
       }
       
-    } catch (fetchError) {
-      console.error('❌ [API Google] Error de fetch:', fetchError.message);
-      return { 
-        exito: false, 
-        error: `Error de conexión: ${fetchError.message}` 
-      };
-    }
-  },
-
-  logout: async () => {
-    console.log('🔍 [API logout] Enviando a:', `${API_BASE_URL}/autenticacion/logout`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/autenticacion/logout`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API logout] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API logout] Respuesta:', data);
       return data;
       
     } catch (error) {
-      console.error('❌ [API logout] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  verificarToken: async () => {
-    console.log('🔍 [API verificar] Enviando a:', `${API_BASE_URL}/autenticacion/verificar`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/autenticacion/verificar`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API verificar] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API verificar] Respuesta:', { exito: data.exito });
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API verificar] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  cambiarContrasena: async (contrasenaActual, nuevaContrasena) => {
-    console.log('🔍 [API cambiarContrasena] Enviando a:', `${API_BASE_URL}/autenticacion/cambiar-contrasena`);
-    
-    try {
-      // Obtener token directamente
-      let token = '';
-      try {
-        const AsyncStorage = await import('@react-native-async-storage/async-storage');
-        token = await AsyncStorage.default.getItem('token') || '';
-      } catch (storageError) {
-        console.warn('⚠️ No se pudo obtener token de AsyncStorage');
-      }
-      
-      const response = await fetch(`${API_BASE_URL}/autenticacion/cambiar-contrasena`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ contrasenaActual, nuevaContrasena }),
-      });
-      
-      console.log('📡 [API cambiarContrasena] Status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ [API cambiarContrasena] Respuesta:', data);
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API cambiarContrasena] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión con el servidor' 
-      };
-    }
-  },
-
-  // 📧 ENVÍO DE CÓDIGOS
-  enviarCodigo: async (correo, codigo) => {
-    console.log('🔍 [API enviarCodigo] Enviando a:', `${API_BASE_URL}/enviarCorreo`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/enviarCorreo`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ correo, codigo }),
-      });
-      
-      console.log('📡 [API enviarCodigo] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API enviarCodigo] Respuesta:', data);
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API enviarCodigo] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  // 🧠 TESTS
-  obtenerHistorialTests: async (usuarioId) => {
-    console.log('🔍 [API historialTests] Enviando a:', `${API_BASE_URL}/tests/historial/${usuarioId}`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/tests/historial/${usuarioId}`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API historialTests] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API historialTests] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  obtenerMisResultados: async () => {
-    console.log('🔍 [API misResultados] Enviando a:', `${API_BASE_URL}/tests/mis-resultados`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/tests/mis-resultados`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API misResultados] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API misResultados] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  obtenerEstadisticasTests: async () => {
-    console.log('🔍 [API estadisticasTests] Enviando a:', `${API_BASE_URL}/tests/estadisticas/generales`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/tests/estadisticas/generales`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API estadisticasTests] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API estadisticasTests] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  // 🎯 TESTS VOCACIONALES
-  obtenerResultadosVocacionales: async (usuarioId) => {
-    console.log('🔍 [API vocacionalHistorial] Enviando a:', `${API_BASE_URL}/vocacional/historial/${usuarioId}`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/vocacional/historial/${usuarioId}`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API vocacionalHistorial] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API vocacionalHistorial] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  obtenerUltimoVocacional: async (usuarioId) => {
-    console.log('🔍 [API ultimoVocacional] Enviando a:', `${API_BASE_URL}/vocacional/ultimo/${usuarioId}`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/vocacional/ultimo/${usuarioId}`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API ultimoVocacional] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API ultimoVocacional] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  obtenerEstadisticasVocacionales: async (usuarioId) => {
-    console.log('🔍 [API estadisticasVocacional] Enviando a:', `${API_BASE_URL}/vocacional/estadisticas/${usuarioId}`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/vocacional/estadisticas/${usuarioId}`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API estadisticasVocacional] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API estadisticasVocacional] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  // 👤 PERFIL DE USUARIO
-  obtenerMiPerfil: async () => {
-    console.log('🔍 [API miPerfil] Enviando a:', `${API_BASE_URL}/usuario/perfil`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/usuario/perfil`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API miPerfil] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API miPerfil] Respuesta:', { exito: data.exito });
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API miPerfil] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  obtenerPerfilPublico: async (usuarioId) => {
-    console.log('🔍 [API perfilPublico] Enviando a:', `${API_BASE_URL}/usuario/perfil/${usuarioId}`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/usuario/perfil/${usuarioId}`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API perfilPublico] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API perfilPublico] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  actualizarPerfil: async (datosPerfil) => {
-    console.log('🔍 [API actualizarPerfil] Enviando a:', `${API_BASE_URL}/usuario/perfil`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/usuario/perfil`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(datosPerfil),
-      });
-      
-      console.log('📡 [API actualizarPerfil] Status:', response.status);
-      const data = await response.json();
-      console.log('✅ [API actualizarPerfil] Respuesta:', data);
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API actualizarPerfil] Error:', error.message);
-      return { 
-        exito: false, 
-        error: 'Error de conexión: ' + error.message 
-      };
-    }
-  },
-
-  obtenerDashboard: async () => {
-    console.log('🔍 [API dashboard] Enviando a:', `${API_BASE_URL}/usuario/dashboard`);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/usuario/dashboard`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      });
-      
-      console.log('📡 [API dashboard] Status:', response.status);
-      const data = await response.json();
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [API dashboard] Error:', error.message);
+      console.error(`❌ [API] Error en ${endpoint}:`, error.message);
       return { 
         exito: false, 
         error: 'Error de conexión: ' + error.message 
       };
     }
   }
+
+  // Limpiar token
+  clearToken() {
+    this.token = null;
+  }
+
+  // 🔐 AUTENTICACIÓN
+  async login(identificador, contrasena) {
+    return this.request('/autenticacion/login', {
+      method: 'POST',
+      body: JSON.stringify({ identificador, contrasena }),
+    });
+  }
+
+  async registro(datosUsuario) {
+    return this.request('/autenticacion/registro', {
+      method: 'POST',
+      body: JSON.stringify(datosUsuario),
+    });
+  }
+
+  async loginGoogle(accessToken) {
+    console.log('🔑 [API Google] Token recibido:', accessToken?.substring(0, 30) + '...');
+    
+    return this.request('/autenticacion/google', {
+      method: 'POST',
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+  }
+
+  async logout() {
+    const result = await this.request('/autenticacion/logout', {
+      method: 'POST',
+    });
+    
+    // Limpiar token localmente
+    this.clearToken();
+    
+    return result;
+  }
+
+  async verificarToken() {
+    return this.request('/autenticacion/verificar');
+  }
+
+  async cambiarContrasena(contrasenaActual, nuevaContrasena) {
+    return this.request('/autenticacion/cambiar-contrasena', {
+      method: 'POST',
+      body: JSON.stringify({ contrasenaActual, nuevaContrasena }),
+    });
+  }
+
+  // 📧 ENVÍO DE CÓDIGOS
+  async enviarCodigo(correo, codigo) {
+    return this.request('/enviarCorreo', {
+      method: 'POST',
+      body: JSON.stringify({ correo, codigo }),
+    });
+  }
+
+  // 👤 PERFIL DE USUARIO (FUNCIONES NUEVAS)
+  async obtenerMiPerfil() {
+    return this.request('/usuario/perfil');
+  }
+
+  async obtenerPerfilPublico(usuarioId) {
+    return this.request(`/usuario/perfil/${usuarioId}`);
+  }
+
+  async actualizarPerfil(datosPerfil) {
+    return this.request('/usuario/perfil', {
+      method: 'PUT',
+      body: JSON.stringify(datosPerfil),
+    });
+  }
+
+  // 📊 ESTADÍSTICAS (FUNCIONES NUEVAS)
+  async obtenerEstadisticas() {
+    return this.request('/usuario/estadisticas');
+  }
+
+  async obtenerDashboard() {
+    return this.request('/usuario/dashboard');
+  }
+
+  // 🧠 TESTS
+  async obtenerHistorialTests(usuarioId) {
+    return this.request(`/tests/historial/${usuarioId}`);
+  }
+
+  async obtenerMisResultados() {
+    return this.request('/tests/mis-resultados');
+  }
+
+  async obtenerEstadisticasTests() {
+    return this.request('/tests/estadisticas/generales');
+  }
+
+  // 🎯 TESTS VOCACIONALES
+  async obtenerResultadosVocacionales(usuarioId) {
+    return this.request(`/vocacional/historial/${usuarioId}`);
+  }
+
+  async obtenerUltimoVocacional(usuarioId) {
+    return this.request(`/vocacional/ultimo/${usuarioId}`);
+  }
+
+  async obtenerEstadisticasVocacionales(usuarioId) {
+    return this.request(`/vocacional/estadisticas/${usuarioId}`);
+  }
+
+  // 🔍 BÚSQUEDA DE USUARIOS (FUNCIONES NUEVAS)
+  async buscarUsuarios(termino) {
+    return this.request(`/usuarios/buscar?q=${encodeURIComponent(termino)}`);
+  }
+
+  async obtenerUsuariosPopulares() {
+    return this.request('/usuarios/populares');
+  }
+
+  // 📝 TESTS (FUNCIONES NUEVAS)
+  async crearTest(datosTest) {
+    return this.request('/tests', {
+      method: 'POST',
+      body: JSON.stringify(datosTest),
+    });
+  }
+
+  async obtenerTest(testId) {
+    return this.request(`/tests/${testId}`);
+  }
+
+  async obtenerMisTests() {
+    return this.request('/tests/mios');
+  }
+
+  // 📸 SUBIDA DE ARCHIVOS (FUNCIONES NUEVAS)
+  async subirImagen(formData) {
+    return this.request('/upload/imagen', {
+      method: 'POST',
+      contentType: null, // Para FormData
+      body: formData,
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+  }
+
+  // 🔔 NOTIFICACIONES (FUNCIONES NUEVAS)
+  async obtenerNotificaciones() {
+    return this.request('/notificaciones');
+  }
+
+  async marcarNotificacionLeida(notificacionId) {
+    return this.request(`/notificaciones/${notificacionId}/leer`, {
+      method: 'PUT',
+    });
+  }
+
+  // Métodos de conveniencia
+  async obtenerUsuarioActual() {
+    const perfil = await this.obtenerMiPerfil();
+    if (perfil.exito) {
+      return perfil.usuario;
+    }
+    return null;
+  }
+
+  async estaAutenticado() {
+    try {
+      const resultado = await this.verificarToken();
+      return resultado.exito === true;
+    } catch (error) {
+      return false;
+    }
+  }
+}
+
+// Exportar instancia única
+export const apiService = new APIClient();
+
+// También exportar funciones individuales para compatibilidad
+export const funcionesAPI = {
+  // 🔐 AUTENTICACIÓN
+  login: (identificador, contrasena) => apiService.login(identificador, contrasena),
+  registro: (datosUsuario) => apiService.registro(datosUsuario),
+  loginGoogle: (accessToken) => apiService.loginGoogle(accessToken),
+  logout: () => apiService.logout(),
+  verificarToken: () => apiService.verificarToken(),
+  cambiarContrasena: (contrasenaActual, nuevaContrasena) => 
+    apiService.cambiarContrasena(contrasenaActual, nuevaContrasena),
+
+  // 👤 PERFIL
+  obtenerMiPerfil: () => apiService.obtenerMiPerfil(),
+  obtenerPerfilPublico: (usuarioId) => apiService.obtenerPerfilPublico(usuarioId),
+  actualizarPerfil: (datosPerfil) => apiService.actualizarPerfil(datosPerfil),
+
+  // 📊 ESTADÍSTICAS
+  obtenerEstadisticas: () => apiService.obtenerEstadisticas(),
+  obtenerDashboard: () => apiService.obtenerDashboard(),
+
+  // 🧠 TESTS
+  obtenerHistorialTests: (usuarioId) => apiService.obtenerHistorialTests(usuarioId),
+  obtenerMisResultados: () => apiService.obtenerMisResultados(),
+  obtenerEstadisticasTests: () => apiService.obtenerEstadisticasTests(),
+
+  // 🎯 VOCACIONAL
+  obtenerResultadosVocacionales: (usuarioId) => apiService.obtenerResultadosVocacionales(usuarioId),
+  obtenerUltimoVocacional: (usuarioId) => apiService.obtenerUltimoVocacional(usuarioId),
+  obtenerEstadisticasVocacionales: (usuarioId) => apiService.obtenerEstadisticasVocacionales(usuarioId),
+
+  // 🔍 BÚSQUEDA
+  buscarUsuarios: (termino) => apiService.buscarUsuarios(termino),
+  obtenerUsuariosPopulares: () => apiService.obtenerUsuariosPopulares(),
+
+  // 📧 CORREO
+  enviarCodigo: (correo, codigo) => apiService.enviarCodigo(correo, codigo),
+
+  // MÉTODOS DE CONVENIENCIA
+  obtenerUsuarioActual: () => apiService.obtenerUsuarioActual(),
+  estaAutenticado: () => apiService.estaAutenticado(),
 };

@@ -1,219 +1,154 @@
-import React, { useState, useEffect } from 'react';
-import { TextInput, Image, Alert, Text, View, TouchableOpacity, Platform } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { 
+  TextInput, 
+  Image, 
+  Alert, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { estilos } from '../estilos/styles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiService } from '../servicios/api';
+import { AuthContext } from './AppNavigator'; // Ajusta la ruta según tu estructura
+import { ActivityIndicator } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function PantallaLogin({ navigation }) {
-  const [usuario, setUsuario] = useState('');
+  const [identificador, setIdentificador] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
+  const { iniciarSesion } = useContext(AuthContext);
 
-  // 🔧 CONFIGURACIÓN CORRECTA DE GOOGLE
+  // Configuración simplificada de Google
   const [solicitudGoogle, respuestaGoogle, iniciarGoogle] = Google.useAuthRequest({
-    androidClientId: '875101074375-kttkiehldj4dbup7ta66vrgd3evpl4v9.apps.googleusercontent.com',
-    webClientId: '875101074375-s6bp5dbcrf6s3cooi2i0bdou721b3n37.apps.googleusercontent.com',
-    expoClientId: '875101074375-s6bp5dbcrf6s3cooi2i0bdou721b3n37.apps.googleusercontent.com',
-    redirectUri: Platform.select({
-      web: typeof window !== 'undefined' 
-        ? `${window.location.origin}/` 
-        : 'http://localhost:8081/',
-      android: 'com.anonymous.rumbo5IV8:/oauth2redirect',
-      ios: 'com.anonymous.rumbo5IV8:/oauth2redirect',
+    androidClientId: '875101074375-s6bp5dbcrf6s3cooi2i0bdou721b3n37',
+    iosClientId: '875101074375-s6bp5dbcrf6s3cooi2i0bdou721b3n37',
+    webClientId: '875101074375-t8ghd22q0e7dler6qt1h31dbn5ltvutp',
+    redirectUri: AuthSession.makeRedirectUri({
+      useProxy: true,
     }),
   });
 
-  // 🔍 DEBUG: Verificar configuración
+  // Manejar respuesta de Google
   useEffect(() => {
-    console.log('🔍 [DEBUG] Google config loaded');
-    console.log('🔍 [DEBUG] Platform:', Platform.OS);
-    console.log('🔍 [DEBUG] Redirect URI:', solicitudGoogle?.redirectUri);
-  }, [solicitudGoogle]);
+    const manejarRespuestaGoogle = async () => {
+      if (respuestaGoogle?.type === 'success') {
+        await manejarLoginGoogle(respuestaGoogle.authentication.accessToken);
+      } else if (respuestaGoogle?.type === 'error') {
+        Alert.alert('Error', 'Error al autenticar con Google');
+      }
+    };
 
-  // 🔥 MANEJAR RESPUESTA DE GOOGLE
-  useEffect(() => {
-    console.log('🔍 [DEBUG] Google response:', respuestaGoogle?.type || 'none');
-    
-    if (!respuestaGoogle) return;
-    
-    if (respuestaGoogle.type === 'success') {
-      console.log('✅ [DEBUG] Google auth success!');
-      console.log('🔑 Token recibido:', respuestaGoogle.authentication?.accessToken?.substring(0, 30) + '...');
-      
-      setDebugInfo('Google auth success, processing token...');
-      manejarTokenGoogle(respuestaGoogle.authentication.accessToken);
-    }
-    
-    if (respuestaGoogle.type === 'error') {
-      console.error('❌ [DEBUG] Google error:', respuestaGoogle.error);
-      Alert.alert('Error Google', respuestaGoogle.error?.message || 'Error desconocido');
-      setDebugInfo('Google error: ' + respuestaGoogle.error?.message);
-    }
-    
-    if (respuestaGoogle.type === 'locked') {
-      console.log('🔒 [DEBUG] Google locked - user cancelled');
-      setDebugInfo('Google auth cancelled by user');
+    if (respuestaGoogle) {
+      manejarRespuestaGoogle();
     }
   }, [respuestaGoogle]);
 
-  // 🔑 FUNCIÓN PARA MANEJAR TOKEN DE GOOGLE
-  const manejarTokenGoogle = async (accessToken) => {
-    console.log('══════════════════════════════════════════════════');
-    console.log('🔍 [DEBUG] Iniciando manejarTokenGoogle');
-    console.log('📱 Plataforma:', Platform.OS);
-    console.log('🔑 Token length:', accessToken?.length);
-    console.log('🔑 Token (primeros 30):', accessToken?.substring(0, 30) + '...');
-    console.log('══════════════════════════════════════════════════');
-    
+  // Login con Google
+  const manejarLoginGoogle = async (accessToken) => {
     setCargando(true);
-    setDebugInfo('Procesando token Google...');
-
+    
     try {
-      // 1. LLAMAR A LA API
-      console.log('📡 Llamando a apiService.loginGoogle()...');
-      const datos = await apiService.loginGoogle(accessToken);
+      console.log('🔐 Procesando login Google...');
+      const respuesta = await apiService.loginGoogle(accessToken);
       
-      console.log('📥 Respuesta API:', {
-        exito: datos.exito,
-        error: datos.error,
-        tieneUsuario: !!datos.usuario,
-        tieneToken: !!datos.token
-      });
-      
-      if (datos.exito && datos.usuario) {
-        console.log('🎉 Login Google exitoso!');
-        console.log('👤 Usuario:', datos.usuario.nombre || datos.usuario.email);
-        
-        // 2. GUARDAR EN ASYNCSTORAGE
-        await AsyncStorage.setItem('sesionActiva', 'true');
-        await AsyncStorage.setItem('usuarioInfo', JSON.stringify(datos.usuario));
-        await AsyncStorage.setItem('usuarioId', datos.usuario.id.toString());
-        await AsyncStorage.setItem('token', datos.token || 'google_token');
-        
-        console.log('💾 Datos guardados en AsyncStorage');
-        setDebugInfo('Login exitoso, navegando...');
-        
-        // 3. NAVEGAR
-        setTimeout(() => {
-          navigation.navigate('MenuPrincipal', { usuario: datos.usuario });
-        }, 500);
-        
+      if (respuesta.exito && respuesta.token && respuesta.usuario) {
+        // Usar el contexto de autenticación
+        await iniciarSesion(respuesta.token, respuesta.usuario);
+        Alert.alert('✅ Éxito', 'Inicio de sesión con Google exitoso');
+        // La navegación se manejará automáticamente en AppNavigator
       } else {
-        console.error('❌ Error en login Google:', datos.error);
-        Alert.alert('Error', datos.error || 'Error al iniciar sesión con Google');
-        setDebugInfo('Error: ' + datos.error);
+        Alert.alert('Error', respuesta.error || 'Error en autenticación');
       }
-      
     } catch (error) {
-      console.error('💥 Error completo en manejarTokenGoogle:', error);
-      Alert.alert('Error de Conexión', 'No se pudo conectar con el servidor');
-      setDebugInfo('Error de conexión: ' + error.message);
-      
+      console.error('Error Google:', error);
+      Alert.alert('Error', 'No se pudo completar el login con Google');
     } finally {
-      console.log('🏁 Finalizando proceso Google');
       setCargando(false);
     }
   };
 
-  // 👤 LOGIN MANUAL
+  // Login manual
   const manejarLoginManual = async () => {
-    if (!usuario || !contrasena) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+    if (!identificador.trim() || !contrasena.trim()) {
+      Alert.alert('Campos requeridos', 'Por favor ingresa tu usuario/email y contraseña');
       return;
     }
 
     setCargando(true);
-    setDebugInfo('Iniciando login manual...');
 
     try {
-      const datos = await apiService.login(usuario, contrasena);
-
-      if (datos.exito) {
-        const usuarioInfo = datos.usuario;
-        
-        await AsyncStorage.setItem('sesionActiva', 'true');
-        await AsyncStorage.setItem('usuarioId', usuarioInfo.id.toString());
-        await AsyncStorage.setItem('usuarioInfo', JSON.stringify(usuarioInfo));
-        await AsyncStorage.setItem('token', datos.token || 'token_guardado');
-        
-        setDebugInfo('Login manual exitoso');
-        
-        navigation.navigate('MenuPrincipal', { usuario: usuarioInfo });
+      const respuesta = await apiService.login(identificador, contrasena);
+      
+      if (respuesta.exito && respuesta.token && respuesta.usuario) {
+        // Usar el contexto de autenticación
+        await iniciarSesion(respuesta.token, respuesta.usuario);
+        Alert.alert('✅ Éxito', 'Inicio de sesión exitoso');
+        // La navegación se manejará automáticamente en AppNavigator
       } else {
-        const mensajeError = datos.error || 'Credenciales incorrectas';
-        Alert.alert('Error', mensajeError);
+        Alert.alert('Error', respuesta.error || 'Credenciales incorrectas');
         setContrasena('');
-        setDebugInfo('Error: ' + mensajeError);
       }
     } catch (error) {
-      console.error('Error en login manual:', error);
-      Alert.alert('Error', 'Error de conexión con el servidor');
-      setDebugInfo('Error de conexión');
+      console.error('Error login:', error);
+      Alert.alert('Error de conexión', 'No se pudo conectar con el servidor');
     } finally {
       setCargando(false);
     }
   };
 
-  // 🚀 INICIAR GOOGLE
-  const manejarLoginGoogle = async () => {
-    console.log('🔍 [DEBUG] Botón Google clickeado');
-    setDebugInfo('Iniciando Google auth...');
-    
+  // Iniciar flujo de Google
+  const iniciarGoogleLogin = async () => {
     if (!solicitudGoogle) {
-      Alert.alert('Error', 'Google auth no está configurado');
+      Alert.alert('Error', 'Google login no disponible');
       return;
     }
     
     try {
-      console.log('🔍 [DEBUG] Iniciando Google auth...');
       await iniciarGoogle();
-      console.log('✅ [DEBUG] iniciarGoogle() llamado');
     } catch (error) {
-      console.error('❌ Error iniciando Google:', error);
-      Alert.alert('Error', 'No se pudo iniciar sesión con Google');
-      setDebugInfo('Error iniciando Google');
+      console.error('Error iniciando Google:', error);
     }
   };
 
-  const manejarRecuperarContrasena = () => {
-    navigation.navigate('MandarCorreo', { modo: 'recuperar' });
-  };
-
-  const manejarCrearCuenta = () => {
+  // Navegación
+  const irARegistro = () => {
     navigation.navigate('MandarCorreo', { modo: 'crear' });
   };
 
-  // 🔄 VERIFICAR SESIÓN AL CARGAR
+  const irARecuperarContrasena = () => {
+    navigation.navigate('MandarCorreo', { modo: 'recuperar' });
+  };
+
+  // Verificar sesión activa
   useEffect(() => {
-    const verificarSesionActiva = async () => {
+    const verificarSesion = async () => {
       try {
-        const sesionActiva = await AsyncStorage.getItem('sesionActiva');
-        const usuarioInfo = await AsyncStorage.getItem('usuarioInfo');
+        const token = await AsyncStorage.getItem('token');
+        const usuarioString = await AsyncStorage.getItem('usuario');
         
-        if (sesionActiva === 'true' && usuarioInfo) {
-          const token = await AsyncStorage.getItem('token');
-          if (token) {
-            try {
-              const verificado = await apiService.verificarToken();
-              if (verificado.exito) {
-                console.log('✅ Auto-navigating from saved session');
-                navigation.navigate('MenuPrincipal', { usuario: JSON.parse(usuarioInfo) });
-                return;
-              }
-            } catch (error) {
-              console.log('Token inválido o expirado');
-              await AsyncStorage.removeItem('sesionActiva');
-              await AsyncStorage.removeItem('usuarioInfo');
-              await AsyncStorage.removeItem('token');
+        if (token && usuarioString) {
+          const usuario = JSON.parse(usuarioString);
+          // Verificar token con backend
+          try {
+            const verificado = await apiService.verificarToken();
+            if (verificado.exito) {
+              // Si hay sesión válida, redirigir automáticamente
+              // (AppNavigator ya manejará esto, pero por si acaso)
+              navigation.navigate('MenuPrincipal');
             }
+          } catch (error) {
+            // Token inválido, limpiar
+            await AsyncStorage.multiRemove(['token', 'usuario']);
           }
         }
       } catch (error) {
@@ -221,118 +156,129 @@ export default function PantallaLogin({ navigation }) {
       }
     };
 
-    verificarSesionActiva();
-  }, [navigation]);
-
-  // 🌐 CONFIGURAR TÍTULO PARA WEB
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      document.title = 'Inicio de sesión - Rumbo';
-    }
+    verificarSesion();
   }, []);
 
   return (
-    <LinearGradient colors={['#000000ff', '#ffffffff', '#000000ff']} style={{ flex: 1 }}>
-      <SafeAreaView style={estilos.contenedorPrincipal}>
-        <Text style={[estilos.titulo, { fontSize: 40 }]}>Iniciar sesión</Text>
-        <Text style={estilos.subtitulo}>
-          Inicia sesión para acceder a todo nuestro contenido
-        </Text>
-
-        <TextInput
-          style={estilos.contenedorInput}
-          placeholder="Ingresa tu nombre de usuario o email"
-          value={usuario}
-          onChangeText={setUsuario}
-          autoCapitalize="none"
-          editable={!cargando}
-          placeholderTextColor="#666"
-        />
-
-        <TextInput
-          style={estilos.contenedorInput}
-          placeholder="Ingresa tu contraseña"
-          value={contrasena}
-          onChangeText={setContrasena}
-          secureTextEntry
-          editable={!cargando}
-          placeholderTextColor="#666"
-        />
-
-        <TouchableOpacity 
-          onPress={manejarLoginManual} 
-          style={[
-            estilos.botonGrande, 
-            cargando && estilos.botonDeshabilitado
-          ]}
-          disabled={cargando}
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        <LinearGradient 
+          colors={['#000000', '#1a1a1a', '#000000']} 
+          style={{ flex: 1 }}
         >
-          <Text style={estilos.textoBotonGrande}>
-            {cargando ? 'Iniciando sesión...' : 'Iniciar sesión'}
-          </Text>
-        </TouchableOpacity>
+          <SafeAreaView style={estilos.contenedorPrincipal}>
+            
+            {/* Logo/Título */}
+            <View style={estilos.contenedorLogo}>
+              <Text style={[estilos.titulo, { fontSize: 36, marginBottom: 10 }]}>
+                Rumbo
+              </Text>
+              <Text style={estilos.subtitulo}>
+                Inicia sesión para continuar
+              </Text>
+            </View>
 
-        <View style={{ marginTop: 10, alignItems: 'center' }}>
-          <TouchableOpacity 
-            onPress={manejarRecuperarContrasena}
-            disabled={cargando}
-          >
-            <Text style={estilos.enlace}>¿Olvidaste tu contraseña?</Text>
-          </TouchableOpacity>
+            {/* Formulario */}
+            <View style={estilos.contenedorFormulario}>
+              <TextInput
+                style={estilos.contenedorInput}
+                placeholder="Usuario o email"
+                value={identificador}
+                onChangeText={setIdentificador}
+                autoCapitalize="none"
+                editable={!cargando}
+                placeholderTextColor="#999"
+                autoCorrect={false}
+              />
 
-          <TouchableOpacity 
-            onPress={manejarCrearCuenta}
-            disabled={cargando}
-          >
-            <Text style={estilos.enlace}>Crear nueva cuenta</Text>
-          </TouchableOpacity>
-        </View>
+              <TextInput
+                style={estilos.contenedorInput}
+                placeholder="Contraseña"
+                value={contrasena}
+                onChangeText={setContrasena}
+                secureTextEntry
+                editable={!cargando}
+                placeholderTextColor="#999"
+                onSubmitEditing={manejarLoginManual}
+              />
 
-        <View style={estilos.separador} />
+              <TouchableOpacity 
+                style={[
+                  estilos.botonGrande,
+                  cargando && estilos.botonDeshabilitado
+                ]}
+                onPress={manejarLoginManual}
+                disabled={cargando}
+              >
+                {cargando ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={estilos.textoBotonGrande}>
+                    Iniciar sesión
+                  </Text>
+                )}
+              </TouchableOpacity>
 
-        <Text style={estilos.subtituloInferior}>Puedes iniciar sesión con tus redes</Text>
+              <View style={estilos.contenedorEnlaces}>
+                <TouchableOpacity onPress={irARecuperarContrasena}>
+                  <Text style={estilos.enlace}>
+                    ¿Olvidaste tu contraseña?
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity onPress={irARegistro}>
+                  <Text style={estilos.enlace}>
+                    Crear nueva cuenta
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-        <View style={estilos.contenedorRedes}>
-          <TouchableOpacity 
-            style={[
-              estilos.botonRed,
-              cargando && estilos.botonDeshabilitado
-            ]} 
-            onPress={manejarLoginGoogle}
-            disabled={cargando}
-          >
-            <Image source={require('../recursos/img/google.png')} style={estilos.iconoRed} />
-            <Text style={estilos.textoBotonRed}>Continuar con Google</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Separador */}
+            <View style={estilos.contenedorSeparador}>
+              <View style={estilos.lineaSeparador} />
+              <Text style={estilos.textoSeparador}>o continuar con</Text>
+              <View style={estilos.lineaSeparador} />
+            </View>
 
-        {/* 🔍 DEBUG PANEL (solo en desarrollo) */}
-        {__DEV__ && (
-          <View style={{ 
-            marginTop: 20, 
-            padding: 10, 
-            backgroundColor: '#000', 
-            borderRadius: 5,
-            maxHeight: 150,
-            opacity: 0.8
-          }}>
-            <Text style={{ fontSize: 10, color: '#0f0', fontFamily: 'monospace' }}>
-              🔍 DEBUG:{'\n'}
-              Estado: {cargando ? 'CARGANDO' : 'LISTO'}{'\n'}
-              Google: {respuestaGoogle?.type || 'NO RESPONSE'}{'\n'}
-              Platform: {Platform.OS}{'\n'}
-              {'='.repeat(40)}{'\n'}
-              {debugInfo}
-            </Text>
-          </View>
-        )}
+            {/* Botón Google */}
+            <View style={estilos.contenedorSocial}>
+              <TouchableOpacity
+                style={[
+                  estilos.botonGoogle,
+                  cargando && estilos.botonDeshabilitado
+                ]}
+                onPress={iniciarGoogleLogin}
+                disabled={cargando}
+              >
+                <Image 
+                  source={require('../recursos/img/google.png')} 
+                  style={estilos.iconoGoogle}
+                />
+                <Text style={estilos.textoBotonGoogle}>
+                  Continuar con Google
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {cargando && (
-          <View style={estilos.contenedorCargando}>
-            <Text style={estilos.textoCargando}>Conectando con el servidor...</Text>
-          </View>
-        )}
-      </SafeAreaView>
-    </LinearGradient>
+            {/* Loading overlay */}
+            {cargando && (
+              <View style={estilos.overlayCargando}>
+                <View style={estilos.contenedorCargando}>
+                  <ActivityIndicator size="large" color="#fff" />
+                  <Text style={estilos.textoCargando}>
+                    Conectando...
+                  </Text>
+                </View>
+              </View>
+            )}
+
+          </SafeAreaView>
+        </LinearGradient>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

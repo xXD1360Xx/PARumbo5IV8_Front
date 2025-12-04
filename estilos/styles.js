@@ -180,5 +180,128 @@ export const estilos = StyleSheet.create({
     fontSize: 16 * escalaWeb,
   },
 
+  contenedorLogo: {
+    alignItems: 'center',
+    marginBottom: 40,
+    marginTop: 20,
+  },
+
+  contenedorFormulario: {
+    width: '90%',
+    alignSelf: 'center',
+  },
+
+  contenedorInput: {
+    backgroundColor: '#2a2a2a',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+
+  botonGrande: {
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    padding: 18,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  botonDeshabilitado: {
+    backgroundColor: '#666',
+    opacity: 0.7,
+  },
+
+  textoBotonGrande: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+
+  contenedorEnlaces: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+
+  enlace: {
+    color: '#007AFF',
+    fontSize: 14,
+  },
+
+  contenedorSeparador: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 30,
+    width: '90%',
+    alignSelf: 'center',
+  },
+
+  lineaSeparador: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#444',
+  },
+
+  textoSeparador: {
+    color: '#888',
+    marginHorizontal: 15,
+    fontSize: 14,
+  },
+
+  contenedorSocial: {
+    width: '90%',
+    alignSelf: 'center',
+  },
+
+  botonGoogle: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+
+  iconoGoogle: {
+    width: 24,
+    height: 24,
+    marginRight: 10,
+  },
+
+  textoBotonGoogle: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+
+  overlayCargando: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  contenedorCargando: {
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    padding: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+
+  textoCargando: {
+    color: '#fff',
+    marginTop: 15,
+    fontSize: 16,
+  },
 
 });
