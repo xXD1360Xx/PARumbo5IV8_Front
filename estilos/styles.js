@@ -4,304 +4,203 @@ const { width } = Dimensions.get('window');
 const escalaWeb = Platform.OS === 'web' ? 0.83 : 1;
 
 export const estilos = StyleSheet.create({
-  fondo: { flex: 1 },
-
-
-  titulo: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffffff", 
-    marginBottom: 10,
-    textAlign: "center",
+  // FONDO
+  fondo: { 
+    flex: 1 
   },
 
-  subtitulo: {
-    fontSize: 11,
-    color: "#ffffffff", 
-    marginBottom: 30,
-    textAlign: "center",
-  },
-
+  // CONTENEDOR PRINCIPAL - SIN OSCURIDAD EXTRA
   contenedorPrincipal: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: StatusBar.currentHeight || 20,
-    width: Platform.OS === 'web' ? 330 * escalaWeb : width,
+    justifyContent: 'center',
+    paddingTop: StatusBar.currentHeight || 30,
+    paddingBottom: 20,
+    width: Platform.OS === 'web' ? 360 * escalaWeb : width * 0.9,
+    maxWidth: 450,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.20)',
-    padding: 12 * escalaWeb,
-    marginVertical: Platform.OS === 'web' ? '1%' : 0,
+    paddingHorizontal: 20 * escalaWeb,
+    paddingVertical: 25 * escalaWeb,
+    marginVertical: Platform.OS === 'web' ? '2%' : 0,
   },
 
+  // TÍTULOS SIMPLES
+  titulo: {
+    fontSize: 36 * escalaWeb,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8 * escalaWeb,
+    textAlign: 'center',
+  },
+
+  subtitulo: {
+    fontSize: 14 * escalaWeb,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 30 * escalaWeb,
+    textAlign: 'center',
+    paddingHorizontal: 10 * escalaWeb,
+  },
+
+  // INPUTS - MÁS OSCURO
   contenedorInput: {
     width: '100%',
-    minHeight: 80 * escalaWeb,
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20 * escalaWeb,
-    paddingVertical: 5 * escalaWeb,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    height: 55 * escalaWeb,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 10 * escalaWeb,
-    marginBottom: 30 * escalaWeb,
+    paddingHorizontal: 18 * escalaWeb,
+    marginBottom: 18 * escalaWeb,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 0, 40, 0.5)',
+    color: '#ffffff',
+    fontSize: 16 * escalaWeb,
   },
 
-  contenedorBotones: {
-    flexDirection: 'row',      
-    justifyContent: 'center',   
-    alignItems: 'center',       
-    gap: 10,                    
-    marginTop: 20,
-  },
-
+  // BOTÓN PRINCIPAL - MÁS OSCURO
   botonGrande: {
-    width: 295 * escalaWeb,
-    height: 60 * escalaWeb,
+    width: '100%',
+    height: 55 * escalaWeb,
+    backgroundColor: '#6a002a',
+    borderRadius: 10 * escalaWeb,
     justifyContent: 'center',
-    alignItems: 'center',    
-    backgroundColor: "#8a003a",    
-    borderRadius: 30 * escalaWeb,
-    boxShadow: '1px 1px 15px rgba(255, 77, 136, 0.5)',
+    alignItems: 'center',
+    marginTop: 10 * escalaWeb,
+    shadowColor: '#cc3a6d',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
-    textoBotonGrande: {
-    fontSize: 30 * escalaWeb,
-    color: '#ffffffff',
-    fontWeight: 'bold',
-    },
-
-  botonChico: {
-    width: 150 * escalaWeb,
-    height: 50 * escalaWeb,
-    justifyContent: 'center',
-    alignItems: 'center',  
-    flexDirection: 'row',      
-    backgroundColor: "#8a003a",    
-    borderRadius: 30 * escalaWeb,
-    boxShadow: '1px 1px 15px rgba(255, 77, 136, 0.5)',
-  },
-
-    textoBotonChico: {
-    fontSize: 20 * escalaWeb,
-    color: '#ffffffff',
-    fontWeight: 'bold', 
-    textAlign: 'center',  
-  },
-
-  enlace: {
-    color: '#0055ff',
-    textAlign: 'center',
-    marginTop: 8 * escalaWeb,
-    fontSize: 15 * escalaWeb,
-    textDecorationLine: 'underline',
+  textoBotonGrande: {
+    fontSize: 18 * escalaWeb,
+    color: '#ffffff',
     fontWeight: '600',
   },
 
-  subtituloInferior: {
-    fontSize: 16 * escalaWeb,
-    color: "#ffffffff",
-    marginBottom: 8 * escalaWeb,
-    textAlign: "center",
+  // ENLACES - MÁS OSCUROS
+  contenedorEnlaces: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 20 * escalaWeb,
+    gap: 12 * escalaWeb,
   },
 
-  subtituloRol: {
-    fontSize: 14,
-    color: "#000000ff", 
-    marginBottom: 15,
-    textAlign: "center",
+  enlace: {
+    color: '#cc3a6d',
+    fontSize: 15 * escalaWeb,
+    fontWeight: '500',
   },
 
+  // SEPARADOR
   separador: {
     width: '85%',
     height: 1,
-    backgroundColor: '#fff',
-    marginVertical: 12 * escalaWeb,
-    opacity: 0.6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginTop: 30 * escalaWeb,
+    marginBottom: 20 * escalaWeb,
+  },
+
+  // GOOGLE
+  subtituloInferior: {
+    fontSize: 14 * escalaWeb,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 15 * escalaWeb,
+    textAlign: 'center',
   },
 
   contenedorRedes: {
     width: '100%',
     alignItems: 'center',
-    gap: 12 * escalaWeb,
-    marginTop: 10 * escalaWeb,
+    marginBottom: 25 * escalaWeb,
   },
 
   botonRed: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 290 * escalaWeb,
-    height: 45 * escalaWeb,
-    backgroundColor: '#8a003a',
-    borderRadius: 30 * escalaWeb,
-    boxShadow: '1px 1px 15px rgba(255, 77, 136, 0.5)',
-    paddingHorizontal: 20,
+    width: 250 * escalaWeb,
+    height: 50 * escalaWeb,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 10 * escalaWeb,
+    paddingHorizontal: 20 * escalaWeb,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   iconoRed: {
-    width: 30 * escalaWeb,
-    height: 30 * escalaWeb,
-    resizeMode: 'contain',
+    width: 22 * escalaWeb,
+    height: 22 * escalaWeb,
     marginRight: 12 * escalaWeb,
   },
 
   textoBotonRed: {
-    fontSize: 17 * escalaWeb,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-
-  contenedorRoles: {
-    width: '100%',
-    marginBottom: 25 * escalaWeb,
-  },
-  rolOpcion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8 * escalaWeb,
-  },
-  rolCirculo: {
-    height: 20 * escalaWeb,
-    width: 20 * escalaWeb,
-    borderRadius: 10 * escalaWeb,
-    borderWidth: 2,
-    borderColor: '#8a003a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10 * escalaWeb,
-  },
-  rolCirculoSeleccionado: {
-    height: 10 * escalaWeb,
-    width: 10 * escalaWeb,
-    borderRadius: 5 * escalaWeb,
-    backgroundColor: '#8a003a',
-  },
-  textoRol: {
-    color: '#000000ff',
     fontSize: 16 * escalaWeb,
-  },
-
-  contenedorLogo: {
-    alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 20,
-  },
-
-  contenedorFormulario: {
-    width: '90%',
-    alignSelf: 'center',
-  },
-
-  contenedorInput: {
-    backgroundColor: '#2a2a2a',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    fontSize: 16,
-    color: '#fff',
-    borderWidth: 1,
-    borderColor: '#444',
-  },
-
-  botonGrande: {
-    backgroundColor: '#007AFF',
-    borderRadius: 10,
-    padding: 18,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-
-  botonDeshabilitado: {
-    backgroundColor: '#666',
-    opacity: 0.7,
-  },
-
-  textoBotonGrande: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-
-  contenedorEnlaces: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-
-  enlace: {
-    color: '#007AFF',
-    fontSize: 14,
-  },
-
-  contenedorSeparador: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 30,
-    width: '90%',
-    alignSelf: 'center',
-  },
-
-  lineaSeparador: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#444',
-  },
-
-  textoSeparador: {
-    color: '#888',
-    marginHorizontal: 15,
-    fontSize: 14,
-  },
-
-  contenedorSocial: {
-    width: '90%',
-    alignSelf: 'center',
-  },
-
-  botonGoogle: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-
-  iconoGoogle: {
-    width: 24,
-    height: 24,
-    marginRight: 10,
-  },
-
-  textoBotonGoogle: {
-    color: '#333',
-    fontSize: 16,
     fontWeight: '500',
+    color: '#333',
   },
 
-  overlayCargando: {
+  // LOADING - MÁS OSCURO
+  contenedorCargando: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-
-  contenedorCargando: {
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    padding: 30,
-    borderRadius: 15,
-    alignItems: 'center',
+    zIndex: 1000,
   },
 
   textoCargando: {
-    color: '#fff',
-    marginTop: 15,
-    fontSize: 16,
+    color: '#cc3a6d',
+    fontSize: 16 * escalaWeb,
+    fontWeight: '500',
+    marginTop: 15 * escalaWeb,
   },
 
+  // FOOTER SIMPLE
+  footer: {
+    marginTop: 20 * escalaWeb,
+    alignItems: 'center',
+  },
+
+  textoFooter: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 12 * escalaWeb,
+  },
+
+  // ESTADO DESHABILITADO
+  botonDeshabilitado: {
+    backgroundColor: 'rgba(80, 80, 80, 0.7)',
+    opacity: 0.7,
+  },
+
+  // OTROS (para otras pantallas)
+  contenedorBotones: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 20,
+  },
+
+  botonChico: {
+    width: 150 * escalaWeb,
+    height: 50 * escalaWeb,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    backgroundColor: '#6a002a',
+    borderRadius: 10 * escalaWeb,
+  },
+
+  textoBotonChico: {
+    fontSize: 20 * escalaWeb,
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
 });

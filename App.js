@@ -1,5 +1,5 @@
 import React from 'react';
-import AppNavegacion from './PantallasLogin/AppNavegacion';
+import AppNavegacion from './AppNavegacion';
 
 export default function App() {
   return <AppNavegacion />;
