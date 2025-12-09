@@ -8,7 +8,8 @@ import {
   TouchableOpacity, 
   Platform,
   ScrollView,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Switch
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { estilos } from '../estilos/styles';
@@ -23,6 +24,8 @@ export default function PantallaRegistrarse({ navigation }) {
   const [contrasena, setContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [rol, setRol] = useState('');
+  const [contrasenaAdmin, setContrasenaAdmin] = useState(''); // Nueva contraseña de admin
+  const [perfilPrivado, setPerfilPrivado] = useState(false); // Checkbox perfil privado
   const [cargando, setCargando] = useState(false);
 
   const roles = [
@@ -72,9 +75,23 @@ export default function PantallaRegistrarse({ navigation }) {
         return;
       }
 
+      // Validar contraseña de administrador si se seleccionó ese rol
+      if (rol === 'admin') {
+        if (!contrasenaAdmin.trim()) {
+          Alert.alert('Error', 'Para registrarte como administrador necesitas ingresar la contraseña especial');
+          return;
+        }
+        
+        if (contrasenaAdmin !== 'jimmyponme6xfi') {
+          Alert.alert('Error', 'Contraseña de administrador incorrecta');
+          setContrasenaAdmin(''); // Limpiar campo por seguridad
+          return;
+        }
+      }
+
       console.log('✅ Validaciones pasadas, enviando registro...');
       console.log('📤 Rol seleccionado:', rol);
-
+      console.log('🔒 Perfil privado:', perfilPrivado);
 
       setCargando(true);
       
@@ -84,6 +101,7 @@ export default function PantallaRegistrarse({ navigation }) {
         nombreUsuario: usuario.trim(),
         contrasena: contrasena,
         rol: rol,
+        // Nota: Aquí podrías agregar perfilPrivado si el backend lo soporta
       });
       
       console.log('📡 Respuesta del servidor:', respuesta);
@@ -99,13 +117,14 @@ export default function PantallaRegistrarse({ navigation }) {
           ['token', respuesta.token]
         ]);
         
-      navigation.navigate('MenuPrincipal');
+        navigation.navigate('MenuPrincipal');
 
       } else {
         Alert.alert('Error', respuesta.error || 'Error en el registro');
         // Limpiar contraseñas en caso de error
         setContrasena('');
         setConfirmarContrasena('');
+        setContrasenaAdmin(''); // También limpiar contraseña de admin
       }
       
     } catch (error) {
@@ -115,6 +134,13 @@ export default function PantallaRegistrarse({ navigation }) {
       setCargando(false);
     }
   };
+
+  // Limpiar contraseña de admin cuando cambia el rol
+  useEffect(() => {
+    if (rol !== 'admin') {
+      setContrasenaAdmin('');
+    }
+  }, [rol]);
 
   const manejarLogin = () => {
     navigation.navigate('Login');
@@ -172,7 +198,7 @@ export default function PantallaRegistrarse({ navigation }) {
 
             <TextInput
               style={[estilos.contenedorInput, { marginBottom: 12 }]}
-              placeholder="Nombre de usuario (mínimo 3 caracteres)"
+              placeholder="Nombre de usuario"
               placeholderTextColor="rgba(255,255,255,0.6)"
               value={usuario}
               onChangeText={setUsuario}
@@ -199,7 +225,6 @@ export default function PantallaRegistrarse({ navigation }) {
               onChangeText={setConfirmarContrasena}
               secureTextEntry
               editable={!cargando}
-              onSubmitEditing={manejarRegistro}
             />
 
             {/* Selección de Rol */}
@@ -247,6 +272,71 @@ export default function PantallaRegistrarse({ navigation }) {
                   </Text>
                 </TouchableOpacity>
               ))}
+            </View>
+
+            {/* Campo para contraseña de administrador (solo visible si rol es admin) */}
+            {rol === 'admin' && (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={[estilos.subtitulo, { fontSize: 16, marginBottom: 8 }]}>
+                  Contraseña de administrador
+                </Text>
+                <TextInput
+                  style={[estilos.contenedorInput]}
+                  placeholder="Ingresa la contraseña especial"
+                  placeholderTextColor="rgba(255,255,255,0.6)"
+                  value={contrasenaAdmin}
+                  onChangeText={setContrasenaAdmin}
+                  secureTextEntry
+                  editable={!cargando}
+                />
+                <Text style={{
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 12,
+                  marginTop: 6,
+                  fontStyle: 'italic'
+                }}>
+                  Se requiere contraseña especial para crear cuenta de administrador
+                </Text>
+              </View>
+            )}
+
+            {/* Checkbox de Perfil Privado */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)'
+            }}>
+              <Switch
+                value={perfilPrivado}
+                onValueChange={setPerfilPrivado}
+                disabled={cargando}
+                trackColor={{ false: '#767577', true: '#ff3366' }}
+                thumbColor={perfilPrivado ? '#ffffff' : '#f4f3f4'}
+                style={{ marginRight: 12 }}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  color: 'white',
+                  fontSize: 16,
+                  fontWeight: 'bold',
+                  marginBottom: 4
+                }}>
+                  Perfil Privado
+                </Text>
+                <Text style={{
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 13,
+                  lineHeight: 18
+                }}>
+                  Tu perfil solo será visible para los usuarios que sigues.
+                  {perfilPrivado ? ' (Activado)' : ' (Desactivado por defecto)'}
+                </Text>
+              </View>
             </View>
 
             {/* Información adicional */}

@@ -12,10 +12,20 @@ import {
   ScrollView,
   StyleSheet
 } from 'react-native';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { servicioAPI } from '../servicios/api';
+import * as Linking from 'expo-linking';
+
+
+// Configurar para web
+if (Platform.OS === 'web') {
+  WebBrowser.maybeCompleteAuthSession();
+}
+
 
 export default function PantallaLogin({ navigation }) {
   const [identificador, setIdentificador] = useState('');
@@ -24,6 +34,7 @@ export default function PantallaLogin({ navigation }) {
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [errorIdentificador, setErrorIdentificador] = useState('');
   const [errorContrasena, setErrorContrasena] = useState('');
+  const [cargandoGoogle, setCargandoGoogle] = useState(false);
 
   const validarCampos = () => {
     let valido = true;
@@ -86,9 +97,77 @@ export default function PantallaLogin({ navigation }) {
     navigation.navigate('MandarCorreo', { modo: 'crear' });
   };
 
-  const manejarLoginGoogle = () => {
-    Alert.alert('Próximamente', 'Login con Google estará disponible pronto');
-  };
+const manejarLoginGoogle = async () => {
+  setCargandoGoogle(true);
+  
+  try {
+    const TUNNEL_URL = 'https://veifibi-divinablasfemia-8081.exp.direct';
+    const REDIRECT_URI = `${TUNNEL_URL}/--/auth/callback`;
+    const CLIENT_ID = '875101074375-t8ghd22q0e7dler6qt1h31dbn5ltvutp.apps.googleusercontent.com';
+    
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${CLIENT_ID}&` +
+      `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+      `response_type=token&` +
+      `scope=email%20profile&` +
+      `prompt=consent`; // Cambia a 'consent'
+    
+    console.log('🔗 URL:', authUrl.substring(0, 100) + '...');
+    
+    // Abrir directamente
+    await WebBrowser.openBrowserAsync(authUrl);
+    
+    // Esperar 2 segundos y verificar si ya llegó el token
+    setTimeout(async () => {
+      const urlInicial = await Linking.getInitialURL();
+      if (urlInicial && urlInicial.includes('access_token=')) {
+        console.log('✅ ¡Ya llegó el token!');
+        procesarTokenDeDeepLink(urlInicial);
+      } else {
+        console.log('⏳ Esperando token...');
+      }
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    setCargandoGoogle(false);
+  }
+};
+
+
+
+// Función para procesar el token del deep link
+const procesarTokenDeDeepLink = async (accessToken) => {
+  try {
+    console.log('🔐 Procesando token desde deep link...');
+    setCargandoGoogle(true);
+    
+    const respuesta = await servicioAPI.loginConGoogle({
+      access_token: accessToken
+    });
+    
+    if (respuesta.exito && respuesta.token && respuesta.usuario) {
+      console.log('🎉 ¡Login exitoso desde deep link!');
+      
+      await AsyncStorage.setItem('sesionActiva', 'true');
+      await AsyncStorage.setItem('usuarioInfo', JSON.stringify(respuesta.usuario));
+      await AsyncStorage.setItem('usuarioId', respuesta.usuario.id.toString());
+      await AsyncStorage.setItem('token', respuesta.token);
+      
+      // Navegar a MenuPrincipal
+      navigation.replace('MenuPrincipal');
+    } else {
+      Alert.alert('Error', respuesta.error || 'Error del servidor');
+    }
+    
+  } catch (error) {
+    console.error('Error procesando token:', error);
+    Alert.alert('Error', 'No se pudo procesar el token');
+  } finally {
+    setCargandoGoogle(false);
+  }
+};
 
   useEffect(() => {
     const verificarSesionActiva = async () => {
@@ -268,16 +347,22 @@ export default function PantallaLogin({ navigation }) {
             <TouchableOpacity
               style={[
                 styles.botonGoogle,
-                cargando && styles.botonDeshabilitado
+                (cargando || cargandoGoogle) && styles.botonDeshabilitado
               ]}
               onPress={manejarLoginGoogle}
-              disabled={cargando}
+              disabled={cargando || cargandoGoogle}
             >
-              <Image 
-                source={require('../recursos/img/google.png')} 
-                style={styles.iconoGoogle}
-              />
-              <Text style={styles.textoBotonGoogle}>Google</Text>
+              {cargandoGoogle ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Image 
+                    source={require('../recursos/img/google.png')} 
+                    style={styles.iconoGoogle}
+                  />
+                  <Text style={styles.textoBotonGoogle}>Google</Text>
+                </>
+              )}
             </TouchableOpacity>
 
             {/* Footer con más espacio arriba igual que el separador */}

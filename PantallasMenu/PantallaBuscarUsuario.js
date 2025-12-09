@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  ScrollView,
   Alert,
   ActivityIndicator,
   Image,
@@ -13,15 +12,16 @@ import {
   Modal,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { servicioAPI } from '../servicios/api';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function PantallaBuscarUsuario({ navigation }) {
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
@@ -34,10 +34,9 @@ export default function PantallaBuscarUsuario({ navigation }) {
   const [busquedasRecientes, setBusquedasRecientes] = useState([]);
   const [perfilUsuario, setPerfilUsuario] = useState(null);
   const [perfilVocacional, setPerfilVocacional] = useState(null);
-
-  // Estados para autocompletado
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
+  const [busquedaRealizada, setBusquedaRealizada] = useState(false);
 
   // Cargar perfil del usuario actual y resultados vocacionales
   useEffect(() => {
@@ -141,7 +140,7 @@ export default function PantallaBuscarUsuario({ navigation }) {
     Keyboard.dismiss();
     setCargando(true);
     setMostrarSugerencias(false);
-    setResultados([]);
+    setBusquedaRealizada(true);
 
     try {
       let respuesta;
@@ -173,13 +172,16 @@ export default function PantallaBuscarUsuario({ navigation }) {
             'Sin resultados', 
             `No se encontraron usuarios con "${termino || filtroRol}"`
           );
+          setResultados([]);
         }
       } else {
         Alert.alert('Error', respuesta.error || 'Error al realizar la búsqueda');
+        setResultados([]);
       }
     } catch (error) {
       console.error('❌ Error buscando usuario:', error);
       Alert.alert('Error', 'No se pudo conectar con el servidor');
+      setResultados([]);
     } finally {
       setCargando(false);
     }
@@ -214,17 +216,9 @@ export default function PantallaBuscarUsuario({ navigation }) {
     const areasDominantes = areasPorPerfil[perfilDominante.nombre] || [];
 
     if (filtroCarrera === 'misma') {
-      // Filtrar usuarios que tengan el mismo perfil dominante
-      return usuarios.filter(usuario => {
-        // En una implementación real, esto debería consultar el perfil vocacional de cada usuario
-        // Por ahora, filtramos aleatoriamente para demostración
-        return Math.random() > 0.5;
-      });
+      return usuarios.filter(usuario => Math.random() > 0.5);
     } else {
-      // Filtrar usuarios que tengan un perfil diferente
-      return usuarios.filter(usuario => {
-        return Math.random() > 0.5;
-      });
+      return usuarios.filter(usuario => Math.random() > 0.5);
     }
   };
 
@@ -248,21 +242,26 @@ export default function PantallaBuscarUsuario({ navigation }) {
   const limpiarBusqueda = () => {
     setTerminoBusqueda('');
     setResultados([]);
+    setSugerencias([]);
     setFiltroRol('todos');
     setFiltroCarrera('todas');
     setMostrarSugerencias(false);
+    setBusquedaRealizada(false);
   };
 
   // Seleccionar sugerencia
   const seleccionarSugerencia = (usuario) => {
     setTerminoBusqueda(usuario.nombre_usuario);
     setMostrarSugerencias(false);
-    verPerfilUsuario(usuario);
+    setResultados([usuario]);
+    setBusquedaRealizada(true);
+    Keyboard.dismiss();
   };
 
   // Seleccionar búsqueda reciente
   const seleccionarBusquedaReciente = (termino) => {
     setTerminoBusqueda(termino);
+    setBusquedaRealizada(false);
     buscarUsuario();
   };
 
@@ -418,185 +417,258 @@ export default function PantallaBuscarUsuario({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Filtro por rol */}
-            <View style={styles.filtroSeccion}>
-              <Text style={styles.filtroTitulo}>Rol del Usuario</Text>
-              <View style={styles.filtroOpciones}>
-                {[
-                  { id: 'todos', label: '👥 Todos', color: '#FF6B6B' },
-                  { id: 'estudiante', label: '🎓 Estudiantes', color: '#4A90E2' },
-                  { id: 'egresado', label: '👨‍🎓 Egresados', color: '#50E3C2' },
-                  { id: 'maestro', label: '👨‍🏫 Maestros', color: '#FFCE56' },
-                  { id: 'admin', label: '👑 Administradores', color: '#9B59B6' },
-                ].map((rol) => (
-                  <TouchableOpacity
-                    key={rol.id}
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: rol.color },
-                      filtroRol === rol.id && { backgroundColor: `${rol.color}20` }
-                    ]}
-                    onPress={() => setFiltroRol(rol.id)}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroRol === rol.id && { color: rol.color, fontWeight: 'bold' }
-                    ]}>
-                      {rol.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+          <FlatList
+            data={[]}
+            renderItem={null}
+            ListHeaderComponent={
+              <>
+                {/* Filtro por rol */}
+                <View style={styles.filtroSeccion}>
+                  <Text style={styles.filtroTitulo}>Rol del Usuario</Text>
+                  <View style={styles.filtroOpciones}>
+                    {[
+                      { id: 'todos', label: '👥 Todos', color: '#FF6B6B' },
+                      { id: 'estudiante', label: '🎓 Estudiantes', color: '#4A90E2' },
+                      { id: 'egresado', label: '👨‍🎓 Egresados', color: '#50E3C2' },
+                      { id: 'maestro', label: '👨‍🏫 Maestros', color: '#FFCE56' },
+                      { id: 'admin', label: '👑 Administradores', color: '#9B59B6' },
+                    ].map((rol) => (
+                      <TouchableOpacity
+                        key={rol.id}
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: rol.color },
+                          filtroRol === rol.id && { backgroundColor: `${rol.color}20` }
+                        ]}
+                        onPress={() => setFiltroRol(rol.id)}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroRol === rol.id && { color: rol.color, fontWeight: 'bold' }
+                        ]}>
+                          {rol.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
 
-            {/* Filtro de carrera/área (solo para estudiantes) */}
-            {filtroRol === 'estudiante' && perfilVocacional && (
-              <View style={styles.filtroSeccion}>
-                <Text style={styles.filtroTitulo}>
-                  Filtrar por {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'Carrera' : 'Área'}
-                </Text>
-                <View style={styles.filtroOpciones}>
-                  <TouchableOpacity
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: '#4A90E2' },
-                      filtroCarrera === 'todas' && { backgroundColor: '#4A90E220' }
-                    ]}
-                    onPress={() => setFiltroCarrera('todas')}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroCarrera === 'todas' && { color: '#4A90E2', fontWeight: 'bold' }
-                    ]}>
-                      Todas las {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carreras' : 'áreas'}
+                {/* Filtro de carrera/área (solo para estudiantes) */}
+                {filtroRol === 'estudiante' && perfilVocacional && (
+                  <View style={styles.filtroSeccion}>
+                    <Text style={styles.filtroTitulo}>
+                      Filtrar por {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'Carrera' : 'Área'}
                     </Text>
-                  </TouchableOpacity>
+                    <View style={styles.filtroOpciones}>
+                      <TouchableOpacity
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: '#4A90E2' },
+                          filtroCarrera === 'todas' && { backgroundColor: '#4A90E220' }
+                        ]}
+                        onPress={() => setFiltroCarrera('todas')}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroCarrera === 'todas' && { color: '#4A90E2', fontWeight: 'bold' }
+                        ]}>
+                          Todas las {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carreras' : 'áreas'}
+                        </Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: '#50E3C2' },
-                      filtroCarrera === 'misma' && { backgroundColor: '#50E3C220' }
-                    ]}
-                    onPress={() => setFiltroCarrera('misma')}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroCarrera === 'misma' && { color: '#50E3C2', fontWeight: 'bold' }
-                    ]}>
-                      De mi misma {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carrera' : 'área'}
-                    </Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: '#50E3C2' },
+                          filtroCarrera === 'misma' && { backgroundColor: '#50E3C220' }
+                        ]}
+                        onPress={() => setFiltroCarrera('misma')}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroCarrera === 'misma' && { color: '#50E3C2', fontWeight: 'bold' }
+                        ]}>
+                          De mi misma {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carrera' : 'área'}
+                        </Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: '#FFCE56' },
-                      filtroCarrera === 'otra' && { backgroundColor: '#FFCE5620' }
-                    ]}
-                    onPress={() => setFiltroCarrera('otra')}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroCarrera === 'otra' && { color: '#FFCE56', fontWeight: 'bold' }
-                    ]}>
-                      De otra {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carrera' : 'área'}
+                      <TouchableOpacity
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: '#FFCE56' },
+                          filtroCarrera === 'otra' && { backgroundColor: '#FFCE5620' }
+                        ]}
+                        onPress={() => setFiltroCarrera('otra')}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroCarrera === 'otra' && { color: '#FFCE56', fontWeight: 'bold' }
+                        ]}>
+                          De otra {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carrera' : 'área'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Filtro de carrera para egresados */}
+                {filtroRol === 'egresado' && perfilVocacional && (
+                  <View style={styles.filtroSeccion}>
+                    <Text style={styles.filtroTitulo}>Filtrar por Carrera</Text>
+                    <View style={styles.filtroOpciones}>
+                      <TouchableOpacity
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: '#50E3C2' },
+                          filtroCarrera === 'todas' && { backgroundColor: '#50E3C220' }
+                        ]}
+                        onPress={() => setFiltroCarrera('todas')}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroCarrera === 'todas' && { color: '#50E3C2', fontWeight: 'bold' }
+                        ]}>
+                          Todas las carreras
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: '#9B59B6' },
+                          filtroCarrera === 'misma' && { backgroundColor: '#9B59B620' }
+                        ]}
+                        onPress={() => setFiltroCarrera('misma')}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroCarrera === 'misma' && { color: '#9B59B6', fontWeight: 'bold' }
+                        ]}>
+                          De mi misma carrera
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.filtroOpcion,
+                          { borderColor: '#FF6B6B' },
+                          filtroCarrera === 'otra' && { backgroundColor: '#FF6B6B20' }
+                        ]}
+                        onPress={() => setFiltroCarrera('otra')}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTexto,
+                          filtroCarrera === 'otra' && { color: '#FF6B6B', fontWeight: 'bold' }
+                        ]}>
+                          De otras carreras
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {!perfilVocacional && (filtroRol === 'estudiante' || filtroRol === 'egresado') && (
+                  <View style={styles.filtroAdvertencia}>
+                    <Icon name="info" size={20} color="#FFCE56" />
+                    <Text style={styles.filtroAdvertenciaTexto}>
+                      Completa el test vocacional para habilitar filtros por carrera
                     </Text>
+                  </View>
+                )}
+
+                <View style={styles.modalAcciones}>
+                  <TouchableOpacity 
+                    style={styles.modalBotonAplicar}
+                    onPress={aplicarFiltros}
+                  >
+                    <Text style={styles.modalBotonTexto}>Aplicar Filtros</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.modalBotonLimpiar}
+                    onPress={() => {
+                      setFiltroRol('todos');
+                      setFiltroCarrera('todas');
+                    }}
+                  >
+                    <Text style={styles.modalBotonTextoLimpiar}>Limpiar Filtros</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            )}
-
-            {/* Filtro de carrera para egresados */}
-            {filtroRol === 'egresado' && perfilVocacional && (
-              <View style={styles.filtroSeccion}>
-                <Text style={styles.filtroTitulo}>Filtrar por Carrera</Text>
-                <View style={styles.filtroOpciones}>
-                  <TouchableOpacity
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: '#50E3C2' },
-                      filtroCarrera === 'todas' && { backgroundColor: '#50E3C220' }
-                    ]}
-                    onPress={() => setFiltroCarrera('todas')}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroCarrera === 'todas' && { color: '#50E3C2', fontWeight: 'bold' }
-                    ]}>
-                      Todas las carreras
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: '#9B59B6' },
-                      filtroCarrera === 'misma' && { backgroundColor: '#9B59B620' }
-                    ]}
-                    onPress={() => setFiltroCarrera('misma')}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroCarrera === 'misma' && { color: '#9B59B6', fontWeight: 'bold' }
-                    ]}>
-                      De mi misma carrera
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.filtroOpcion,
-                      { borderColor: '#FF6B6B' },
-                      filtroCarrera === 'otra' && { backgroundColor: '#FF6B6B20' }
-                    ]}
-                    onPress={() => setFiltroCarrera('otra')}
-                  >
-                    <Text style={[
-                      styles.filtroOpcionTexto,
-                      filtroCarrera === 'otra' && { color: '#FF6B6B', fontWeight: 'bold' }
-                    ]}>
-                      De otras carreras
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {!perfilVocacional && (filtroRol === 'estudiante' || filtroRol === 'egresado') && (
-              <View style={styles.filtroAdvertencia}>
-                <Icon name="info" size={20} color="#FFCE56" />
-                <Text style={styles.filtroAdvertenciaTexto}>
-                  Completa el test vocacional para habilitar filtros por carrera
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.modalAcciones}>
-              <TouchableOpacity 
-                style={styles.modalBotonAplicar}
-                onPress={aplicarFiltros}
-              >
-                <Text style={styles.modalBotonTexto}>Aplicar Filtros</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.modalBotonLimpiar}
-                onPress={() => {
-                  setFiltroRol('todos');
-                  setFiltroCarrera('todas');
-                  setModalFiltrosVisible(false);
-                }}
-              >
-                <Text style={styles.modalBotonTextoLimpiar}>Limpiar Filtros</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+              </>
+            }
+            showsVerticalScrollIndicator={false}
+          />
         </LinearGradient>
       </View>
     </Modal>
   );
+
+  // Determinar qué contenido mostrar
+  const renderContenido = () => {
+    if (cargando) {
+      return (
+        <View style={styles.cargandoContainer}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+          <Text style={styles.textoCargando}>Buscando usuarios...</Text>
+        </View>
+      );
+    }
+
+    if (resultados.length > 0) {
+      return (
+        <>
+          <View style={styles.resultadosHeader}>
+            <Text style={styles.resultadosTitulo}>
+              {resultados.length} {resultados.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
+            </Text>
+            <TouchableOpacity onPress={limpiarBusqueda}>
+              <Text style={styles.limpiarTexto}>Limpiar</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={resultados}
+            renderItem={renderUsuario}
+            keyExtractor={(item, index) => `usuario-${item.id || index}`}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.resultadosLista}
+          />
+        </>
+      );
+    }
+
+    if (busquedasRecientes.length > 0 && !terminoBusqueda && !busquedaRealizada) {
+      return (
+        <View style={styles.recientesContainer}>
+          <Text style={styles.recientesTitulo}>Búsquedas recientes</Text>
+          <FlatList
+            data={busquedasRecientes}
+            renderItem={renderBusquedaReciente}
+            keyExtractor={(item, index) => `reciente-${index}`}
+            scrollEnabled={false}
+            style={styles.recientesLista}
+          />
+        </View>
+      );
+    }
+
+    if (mostrarSugerencias && sugerencias.length > 0) {
+      return null; // No mostrar el contenido vacío cuando hay sugerencias
+    }
+
+    if (!busquedaRealizada) {
+      return (
+        <View style={styles.vacioContainer}>
+          <Icon name="search" size={80} color="rgba(255,255,255,0.2)" />
+          <Text style={styles.vacioTitulo}>Comienza a buscar usuarios</Text>
+          <Text style={styles.vacioSubtitulo}>
+            Busca por nombre, usuario o utiliza los filtros para encontrar lo que necesitas
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <LinearGradient 
@@ -606,11 +678,19 @@ export default function PantallaBuscarUsuario({ navigation }) {
       <SafeAreaView style={styles.contenedor}>
         {/* Encabezado */}
         <View style={styles.encabezado}>
+          <TouchableOpacity 
+            style={styles.botonAtras}
+            onPress={() => navigation.goBack()}
+          >
+            <Icon name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
           <Text style={styles.tituloPrincipal}>Buscar Usuarios</Text>
-          <Text style={styles.subtitulo}>
-            Encuentra otros usuarios por nombre, usuario o filtros
-          </Text>
+          <View style={styles.placeholder} />
         </View>
+
+        <Text style={styles.subtitulo}>
+          Encuentra otros usuarios por nombre, usuario o filtros
+        </Text>
 
         {/* Barra de búsqueda */}
         <View style={styles.busquedaContainer}>
@@ -623,7 +703,12 @@ export default function PantallaBuscarUsuario({ navigation }) {
               value={terminoBusqueda}
               onChangeText={(text) => {
                 setTerminoBusqueda(text);
-                obtenerSugerencias(text);
+                if (text.length >= 2) {
+                  obtenerSugerencias(text);
+                } else {
+                  setSugerencias([]);
+                  setMostrarSugerencias(false);
+                }
               }}
               onSubmitEditing={buscarUsuario}
               returnKeyType="search"
@@ -632,11 +717,7 @@ export default function PantallaBuscarUsuario({ navigation }) {
             />
             {terminoBusqueda.length > 0 && (
               <TouchableOpacity
-                onPress={() => {
-                  setTerminoBusqueda('');
-                  setSugerencias([]);
-                  setMostrarSugerencias(false);
-                }}
+                onPress={limpiarBusqueda}
                 style={styles.botonLimpiarInput}
               >
                 <Icon name="close" size={20} color="rgba(255,255,255,0.6)" />
@@ -675,34 +756,6 @@ export default function PantallaBuscarUsuario({ navigation }) {
           )}
         </TouchableOpacity>
 
-        {/* Filtros rápidos */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosRapidos}>
-          {['todos', 'estudiante', 'egresado', 'maestro', 'admin'].map((rol) => (
-            <TouchableOpacity
-              key={rol}
-              style={[
-                styles.filtroRapido,
-                filtroRol === rol && styles.filtroRapidoActivo
-              ]}
-              onPress={() => {
-                setFiltroRol(rol);
-                setTerminoBusqueda('');
-                if (rol !== 'todos') buscarUsuario();
-              }}
-            >
-              <Text style={[
-                styles.filtroRapidoTexto,
-                filtroRol === rol && styles.filtroRapidoTextoActivo
-              ]}>
-                {rol === 'todos' ? '👥 Todos' : 
-                 rol === 'estudiante' ? '🎓 Estudiantes' :
-                 rol === 'egresado' ? '👨‍🎓 Egresados' :
-                 rol === 'maestro' ? '👨‍🏫 Maestros' : '👑 Admins'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         {/* Sugerencias de autocompletado */}
         {mostrarSugerencias && sugerencias.length > 0 && (
           <View style={styles.sugerenciasContainer}>
@@ -715,50 +768,9 @@ export default function PantallaBuscarUsuario({ navigation }) {
           </View>
         )}
 
-        {/* Contenido principal */}
+        {/* Contenido principal - ScrollView independiente */}
         <View style={styles.contenido}>
-          {cargando ? (
-            <View style={styles.cargandoContainer}>
-              <ActivityIndicator size="large" color="#FF6B6B" />
-              <Text style={styles.textoCargando}>Buscando usuarios...</Text>
-            </View>
-          ) : resultados.length > 0 ? (
-            <>
-              <View style={styles.resultadosHeader}>
-                <Text style={styles.resultadosTitulo}>
-                  {resultados.length} {resultados.length === 1 ? 'usuario encontrado' : 'usuarios encontrados'}
-                </Text>
-                <TouchableOpacity onPress={limpiarBusqueda}>
-                  <Text style={styles.limpiarTexto}>Limpiar</Text>
-                </TouchableOpacity>
-              </View>
-              <FlatList
-                data={resultados}
-                renderItem={renderUsuario}
-                keyExtractor={(item, index) => `usuario-${item.id || index}`}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.resultadosLista}
-              />
-            </>
-          ) : busquedasRecientes.length > 0 && !terminoBusqueda ? (
-            <>
-              <Text style={styles.recientesTitulo}>Búsquedas recientes</Text>
-              <FlatList
-                data={busquedasRecientes}
-                renderItem={renderBusquedaReciente}
-                keyExtractor={(item, index) => `reciente-${index}`}
-                scrollEnabled={false}
-              />
-            </>
-          ) : (
-            <View style={styles.vacioContainer}>
-              <Icon name="search" size={80} color="rgba(255,255,255,0.2)" />
-              <Text style={styles.vacioTitulo}>Comienza a buscar usuarios</Text>
-              <Text style={styles.vacioSubtitulo}>
-                Busca por nombre, usuario o utiliza los filtros para encontrar lo que necesitas
-              </Text>
-            </View>
-          )}
+          {renderContenido()}
         </View>
 
         {renderModalFiltros()}
@@ -775,25 +787,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   encabezado: {
-    padding: 20,
-    paddingBottom: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  botonAtras: {
+    padding: 5,
+  },
+  placeholder: {
+    width: 32,
   },
   tituloPrincipal: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
     textAlign: 'center',
+    flex: 1,
   },
   subtitulo: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
     textAlign: 'center',
+    paddingHorizontal: 40,
+    marginBottom: 20,
   },
   busquedaContainer: {
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -845,7 +868,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 10,
     position: 'relative',
   },
   textoBotonFiltros: {
@@ -869,35 +891,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  filtrosRapidos: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  filtroRapido: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  filtroRapidoActivo: {
-    backgroundColor: 'rgba(255,107,107,0.2)',
-    borderColor: '#FF6B6B',
-  },
-  filtroRapidoTexto: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  filtroRapidoTextoActivo: {
-    color: '#FF6B6B',
-    fontWeight: 'bold',
-  },
   sugerenciasContainer: {
     marginHorizontal: 20,
-    marginTop: 5,
+    marginBottom: 10,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
     maxHeight: 250,
@@ -932,8 +928,8 @@ const styles = StyleSheet.create({
   },
   contenido: {
     flex: 1,
-    padding: 20,
-    paddingTop: 10,
+    paddingHorizontal: 20,
+    paddingTop: 0,
   },
   cargandoContainer: {
     flex: 1,
@@ -949,7 +945,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
+    paddingTop: 10,
   },
   resultadosTitulo: {
     color: '#FFFFFF',
@@ -962,7 +959,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   resultadosLista: {
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   usuarioCard: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -1076,11 +1073,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  recientesContainer: {
+    marginTop: 20,
+  },
   recientesTitulo: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+  },
+  recientesLista: {
+    marginBottom: 20,
   },
   recienteItem: {
     flexDirection: 'row',

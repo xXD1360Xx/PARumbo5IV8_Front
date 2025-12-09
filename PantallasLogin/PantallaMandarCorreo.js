@@ -40,57 +40,61 @@ export default function PantallaMandarCorreo({ navigation, route }) {
     return true;
   };
 
-  const enviarCorreo = async () => {
-    if (!validarCorreo(correo)) {
-      return;
-    }
+const enviarCorreo = async () => {
+  if (!validarCorreo(correo)) {
+    return;
+  }
 
-    const codigo = Math.floor(1000 + Math.random() * 9000).toString();
-    setCargando(true);
+  const codigo = Math.floor(1000 + Math.random() * 9000).toString();
+  setCargando(true);
 
-    try {
-      const resultado = await servicioAPI.enviarCodigo(correo, codigo);
-      const exito = resultado.success || resultado.exito || false;
-
-      if (exito) {
-        Alert.alert(
-          '✅ Código enviado',
-          `Se ha enviado un código de verificación a:\n\n📧 ${correo}\n\nEl código es: ${codigo}`,
-          [{ 
-            text: 'Continuar', 
-            onPress: () => navigation.navigate('VerificarID', { modo, correo, codigo }) 
-          }],
-          { cancelable: false }
-        );
-      } else {
-        // Modo fallback: mostrar código directamente
-        Alert.alert(
-          '⚠️ Correo no enviado',
-          `No se pudo enviar el correo, pero puedes usar este código:\n\n🔑 ${codigo}`,
-          [{ 
-            text: 'Usar este código', 
-            onPress: () => navigation.navigate('VerificarID', { modo, correo, codigo }) 
-          }],
-          { cancelable: false }
-        );
-      }
-    } catch (error) {
-      console.error("Error al enviar correo:", error);
-      
-      // En caso de error, generar código de respaldo
-      const codigoRespaldo = Math.floor(1000 + Math.random() * 9000).toString();
+  try {
+    // Modo debe ser 'crear' o 'recuperar' según la navegación
+    const modoEnvio = modo === 'recuperar' ? 'recuperar' : 'crear';
+    
+    const resultado = await servicioAPI.enviarCorreo(correo, codigo, modoEnvio);
+    
+    if (resultado.exito) {
       Alert.alert(
-        '❌ Error de conexión',
-        'No se pudo conectar con el servidor. Puedes usar este código para continuar:',
+        '✅ Código enviado',
+        `Se ha enviado un código de verificación a:\n\n📧 ${correo}`,
         [{ 
-          text: `Usar código: ${codigoRespaldo}`, 
-          onPress: () => navigation.navigate('VerificarID', { modo, correo, codigo: codigoRespaldo }) 
-        }]
+          text: 'Continuar', 
+          onPress: () => navigation.navigate('VerificarID', { 
+            modo, 
+            correo, 
+            codigo 
+          }) 
+        }],
+        { cancelable: false }
       );
-    } finally {
-      setCargando(false);
+    } else {
+      Alert.alert(
+        '❌ Error',
+        resultado.error || 'No se pudo enviar el código'
+      );
     }
-  };
+  } catch (error) {
+    console.error("Error al enviar correo:", error);
+    
+    // Fallback: mostrar código si falla el envío
+    Alert.alert(
+      '⚠️ Correo no enviado',
+      `No se pudo enviar el correo, pero puedes usar este código:\n\n🔑 ${codigo}`,
+      [{ 
+        text: 'Usar este código', 
+        onPress: () => navigation.navigate('VerificarID', { 
+          modo, 
+          correo, 
+          codigo 
+        }) 
+      }],
+      { cancelable: false }
+    );
+  } finally {
+    setCargando(false);
+  }
+};
 
   const regresar = () => {
     if (correo.trim() !== '') {

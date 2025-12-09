@@ -54,7 +54,7 @@ export default function PantallaEncontrado({ navigation, route }) {
       }
 
       // Cargar perfil del usuario encontrado
-      const respuesta = await servicioAPI.obtenerPerfilUsuario(usuarioId);
+      const respuesta = await servicioAPI.obtenerPerfilPublico(usuarioId);
       
       if (respuesta.exito) {
         const datosUsuario = respuesta.usuario;

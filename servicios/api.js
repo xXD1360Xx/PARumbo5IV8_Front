@@ -50,6 +50,152 @@ const obtenerHeaders = async (contenidoJSON = true) => {
 // Servicio de API
 export const servicioAPI = {
   // 🔐 AUTENTICACIÓN
+
+// En tu api.js - Servicio de API
+enviarCorreo: async (correo, codigo, modo) => {
+  console.log('🔍 [API] enviarCorreo →', `${URL_BASE_API}/auth/enviarCorreo`);
+  console.log('📝 Datos a enviar:', { correo, codigo, modo });
+  
+  try {
+    const respuesta = await fetch(`${URL_BASE_API}/auth/enviarCorreo`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ 
+        correo, 
+        codigo, 
+        modo: modo || 'crear' 
+      }),
+    });
+    
+    console.log('📡 [API] enviarCorreo Status:', respuesta.status);
+    console.log('📡 [API] enviarCorreo Headers:', respuesta.headers);
+    
+    // Verificar si la respuesta es JSON válido
+    const textoRespuesta = await respuesta.text();
+    console.log('📡 [API] enviarCorreo Respuesta RAW:', textoRespuesta);
+    
+    let datos;
+    try {
+      datos = JSON.parse(textoRespuesta);
+      console.log('📡 [API] enviarCorreo Respuesta JSON:', datos);
+    } catch (jsonError) {
+      console.error('❌ Error parseando JSON:', jsonError.message);
+      console.error('❌ Respuesta del servidor (texto):', textoRespuesta);
+      return { 
+        exito: false, 
+        error: 'Error en la respuesta del servidor'
+      };
+    }
+    
+    return datos;
+  } catch (error) {
+    console.error('❌ [API] enviarCorreo Error de red:', error.message);
+    console.error('🔧 Stack:', error.stack);
+    
+    // Detectar tipo de error
+    if (error.message.includes('Network request failed')) {
+      return { 
+        exito: false, 
+        error: 'Error de conexión. Verifica tu internet.',
+        codigo: 'NETWORK_ERROR'
+      };
+    }
+    
+    if (error.message.includes('timed out') || error.message.includes('timeout')) {
+      return { 
+        exito: false, 
+        error: 'Tiempo de espera agotado',
+        codigo: 'TIMEOUT'
+      };
+    }
+    
+    return { 
+      exito: false, 
+      error: 'Error de conexión al servidor: ' + error.message,
+      codigo: 'CONNECTION_ERROR'
+    };
+  }
+},
+
+verificarCodigo: async (correo, codigo) => {
+  console.log('🔍 [API] verificarCodigo →', `${URL_BASE_API}/auth/verificar-codigo`);
+  
+  try {
+    const respuesta = await fetch(`${URL_BASE_API}/auth/verificar-codigo`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ correo, codigo }),
+    });
+    
+    console.log('📡 [API] verificarCodigo Status:', respuesta.status);
+    const datos = await respuesta.json();
+    return datos;
+  } catch (error) {
+    console.error('❌ [API] verificarCodigo Error:', error.message);
+    return { 
+      exito: false, 
+      error: 'Error de conexión al servidor'
+    };
+  }
+},
+
+// 📧 FUNCIONES DE ENVÍO DE CÓDIGO
+enviarCorreo: async (correo, codigo, modo) => {
+  console.log('🔍 [API] enviarCorreo →', `${URL_BASE_API}/auth/enviarCorreo`);
+  
+  try {
+    const respuesta = await fetch(`${URL_BASE_API}/auth/enviarCorreo`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ correo, codigo, modo }),
+    });
+    
+    console.log('📡 [API] enviarCorreo Status:', respuesta.status);
+    const datos = await respuesta.json();
+    return datos;
+  } catch (error) {
+    console.error('❌ [API] enviarCorreo Error:', error.message);
+    return { 
+      exito: false, 
+      error: 'Error de conexión al servidor'
+    };
+  }
+},
+
+restablecerContrasena: async (correo, codigo, nuevaContrasena) => {
+  console.log('🔍 [API] restablecerContrasena →', `${URL_BASE_API}/auth/restablecer-contrasena`);
+  
+  try {
+    const respuesta = await fetch(`${URL_BASE_API}/auth/restablecer-contrasena`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ correo, codigo, nuevaContrasena }),
+    });
+    
+    console.log('📡 [API] restablecerContrasena Status:', respuesta.status);
+    const datos = await respuesta.json();
+    return datos;
+  } catch (error) {
+    console.error('❌ [API] restablecerContrasena Error:', error.message);
+    return { 
+      exito: false, 
+      error: 'Error de conexión al servidor'
+    };
+  }
+},
+
   iniciarSesion: async (identificador, contrasena) => {
     const url = `${URL_BASE_API}/auth/login`;
     console.log('🔍 [API] iniciarSesion →', url);
@@ -145,7 +291,55 @@ export const servicioAPI = {
     }
   },
 
+  loginConGoogle: async (datosGoogle) => {
+    try {
+      console.log('📤 Enviando a /auth/google:', datosGoogle);
+      
+      const respuesta = await fetch(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(datosGoogle),
+      });
+      
+      const resultado = await respuesta.json();
+      console.log('📥 Respuesta de /auth/google:', resultado);
+      
+      return resultado;
+    } catch (error) {
+      console.error('❌ Error en loginConGoogle:', error);
+      return { 
+        exito: false, 
+        error: 'Error de conexión al servidor',
+        codigo: 'NETWORK_ERROR'
+      };
+    }
+  },
+
   // 👤 PERFIL DE USUARIO
+  obtenerEstadisticasUsuario: async () => {
+    console.log('🔍 [API] obtenerEstadisticasUsuario →', `${URL_BASE_API}/usuario/estadisticas`);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(`${URL_BASE_API}/usuario/estadisticas`, {
+        method: 'GET',
+        headers,
+      });
+      
+      console.log('📡 [API] obtenerEstadisticasUsuario Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] obtenerEstadisticasUsuario Error:', error.message);
+      return { 
+        exito: false, 
+        error: 'Error de conexión'
+      };
+    }
+  },
+
   obtenerMiPerfil: async () => {
     console.log('🔍 [API] obtenerMiPerfil →', `${URL_BASE_API}/usuario/perfil`);
     

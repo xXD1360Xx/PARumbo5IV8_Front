@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { servicioAPI } from '../servicios/api';
 import { useFocusEffect } from '@react-navigation/native';
+import Svg, { Circle, Line, Polygon, Text as SvgText, G } from 'react-native-svg';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -193,7 +195,7 @@ export default function PantallaResultados({ route, navigation }) {
       }
       
       const respuesta = await servicioAPI.obtenerMisResultados();
-      
+      console.log('📊 Respuesta tests conocimiento:', respuesta);
       if (respuesta.exito && respuesta.data && Array.isArray(respuesta.data)) {
         const resultadosUsuario = respuesta.data.filter(item => 
           item.user_id === id || 
@@ -204,8 +206,7 @@ export default function PantallaResultados({ route, navigation }) {
         
         const testsActualizados = testsDisponibles.map(test => {
           const resultado = resultadosUsuario.find(r => 
-            r.test_id === test.id || 
-            r.nombre?.includes(test.nombre)
+            r.test_id === test.id 
           );
           
           return {
@@ -528,229 +529,230 @@ export default function PantallaResultados({ route, navigation }) {
     );
   };
 
-  // Renderizar gráfica de radar para conocimiento
-  const renderGraficaRadar = () => {
-    const categorias = [
-      'Matemáticas',
-      'Medico-Biológicas', 
-      'Ingeniería y Tecnología',
-      'Sociales y Humanísticas',
-      'Artes y Diseño',
-      'Económicas y Administrativas'
-    ];
 
-    // Obtener valores de los tests
-    const valores = testsDisponibles.map(test => {
-      const testResultado = resultadosTests.find(t => t.id === test.id);
-      return testResultado?.completado ? asegurarNumero(testResultado.puntuacion, 0) : 0;
-    });
 
-    // Radio de la gráfica (más grande)
-    const radio = 120;
-    const centroX = 150;
-    const centroY = 150;
 
-    // Colores para los porcentajes
-    const coloresPorcentaje = ['#4A90E2', '#50E3C2', '#FFCE56', '#FF6B6B', '#9B59B6'];
 
-    return (
-      <View style={styles.graficaContainer}>
-        <Text style={styles.tituloGrafica}>Tus resultados de conocimiento</Text>
-        <Text style={styles.subtituloGrafica}>
-          Cada vértice representa un área de conocimiento. Completa más tests para mejorar tu perfil.
-        </Text>
-        
-        <View style={styles.graficaRadarWrapper}>
-          <View style={styles.graficaRadar}>
-            {/* Círculos concéntricos con porcentajes */}
-            {[0, 20, 40, 60, 80, 100].map((porcentaje, index) => {
-              const radioCirculo = (porcentaje / 100) * radio;
-              const esExterno = porcentaje === 100;
-              
-              return (
-                <View key={porcentaje}>
-                  {/* Círculo */}
-                  <View style={[
-                    styles.circuloRadar,
-                    { 
-                      width: radioCirculo * 2,
-                      height: radioCirculo * 2,
-                      borderColor: esExterno ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)',
-                      left: centroX - radioCirculo,
-                      top: centroY - radioCirculo,
-                    }
-                  ]} />
-                  
-                  {/* Etiqueta de porcentaje (solo en algunos ejes) */}
-                  {porcentaje > 0 && porcentaje % 20 === 0 && (
-                    <Text style={[
-                      styles.porcentajeLabel,
-                      {
-                        left: centroX - 15,
-                        top: centroY - radioCirculo - 20,
-                        color: esExterno ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                        fontSize: esExterno ? 12 : 10
-                      }
-                    ]}>
-                      {porcentaje}%
-                    </Text>
-                  )}
-                </View>
-              );
-            })}
+
+const renderGraficaRadar = () => {
+  const categorias = [
+    'Matemáticas',
+    'Biológicas', 
+    'Ingeniería y Tecnología',
+    'Sociales y Humanísticas',
+    'Artes y Diseño',
+    'Económicas y Administrativas'
+  ];
+
+  // Obtener valores de los tests
+  const valores = testsDisponibles.map(test => {
+    const testResultado = resultadosTests.find(t => t.id === test.id);
+    return testResultado?.completado ? asegurarNumero(testResultado.puntuacion, 0) : 0;
+  });
+
+  // Configuración de la gráfica
+  const size = 300; // Tamaño del SVG
+  const center = size / 2;
+  const radius = 110; // Radio máximo
+  const niveles = 5; // Número de círculos concéntricos
+  const angulo = (2 * Math.PI) / categorias.length; // 60 grados en radianes
+
+  // Colores para cada categoría
+  const colores = ['#4A90E2', '#50E3C2', '#FFCE56', '#FF6B6B', '#9B59B6', '#FF3366'];
+
+  // Función para calcular coordenadas de un punto
+  const calcularPunto = (valor, index) => {
+    const porcentaje = valor / 100;
+    const radioActual = porcentaje * radius;
+    const anguloActual = index * angulo - Math.PI / 2; // Rotar 90° para empezar arriba
+    
+    const x = center + radioActual * Math.cos(anguloActual);
+    const y = center + radioActual * Math.sin(anguloActual);
+    
+    return { x, y };
+  };
+
+  // Generar puntos para el polígono
+  const puntosPoligono = valores.map((valor, index) => {
+    const punto = calcularPunto(valor, index);
+    return `${punto.x},${punto.y}`;
+  }).join(' ');
+
+  return (
+    <View style={styles.graficaContainer}>
+      <Text style={styles.tituloGrafica}>Tus resultados de conocimiento</Text>
+      <Text style={styles.subtituloGrafica}>
+        Cada vértice representa un área de conocimiento
+      </Text>
+      
+      <View style={styles.graficaSvgContainer}>
+        <Svg width={size} height={size}>
+          {/* Círculos concéntricos */}
+          {Array.from({ length: niveles }).map((_, nivel) => {
+            const radioNivel = (radius / niveles) * (nivel + 1);
+            const porcentaje = ((nivel + 1) * (100 / niveles));
             
-            {/* Ejes radiales (6 ejes) */}
-            {categorias.map((categoria, index) => {
-              const angulo = (index * 60) * (Math.PI / 180); // 60 grados cada eje
-              const x = radio * Math.cos(angulo) + centroX;
-              const y = radio * Math.sin(angulo) + centroY;
-              
-              return (
-                <View key={index} style={styles.ejeContainer}>
-                  {/* Línea del eje */}
-                  <View style={[
-                    styles.ejeLinea,
-                    {
-                      width: radio,
-                      transform: [
-                        { translateX: centroX },
-                        { translateY: centroY },
-                        { rotate: `${index * 60}deg` }
-                      ]
-                    }
-                  ]} />
-                  
-                  {/* Etiqueta de categoría */}
-                  <Text style={[
-                    styles.categoriaLabel,
-                    {
-                      left: x + (Math.cos(angulo) * 25),
-                      top: y + (Math.sin(angulo) * 25),
-                      transform: [
-                        { translateX: -50 },
-                        { translateY: -10 }
-                      ]
-                    }
-                  ]}>
-                    {categoria.split(' ')[0]}
-                  </Text>
-                </View>
-              );
-            })}
+            return (
+              <G key={`circulo-${nivel}`}>
+                <Circle
+                  cx={center}
+                  cy={center}
+                  r={radioNivel}
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeWidth="1"
+                  fill="none"
+                />
+                {/* Etiqueta de porcentaje */}
+                <SvgText
+                  x={center}
+                  y={center - radioNivel - 5}
+                  fill={nivel === niveles - 1 ? "#ffffff" : "rgba(255,255,255,0.6)"}
+                  fontSize="10"
+                  textAnchor="middle"
+                >
+                  {porcentaje}%
+                </SvgText>
+              </G>
+            );
+          })}
+
+          {/* Ejes radiales (6 ejes) */}
+          {categorias.map((_, index) => {
+            const anguloActual = index * angulo - Math.PI / 2;
+            const x = center + radius * Math.cos(anguloActual);
+            const y = center + radius * Math.sin(anguloActual);
             
-            {/* Línea que forma el hexágono con los resultados */}
-            {valores.some(v => v > 0) && (
-              <View style={styles.poligonoContainer}>
-                {valores.map((valor, index) => {
-                  const angulo = (index * 60) * (Math.PI / 180);
-                  const radioValor = (valor / 100) * radio;
-                  const x = radioValor * Math.cos(angulo) + centroX;
-                  const y = radioValor * Math.sin(angulo) + centroY;
-                  
-                  return (
-                    <View key={index}>
-                      {/* Punto del valor */}
-                      <View style={[
-                        styles.puntoValor,
-                        {
-                          left: x - 6,
-                          top: y - 6,
-                          backgroundColor: coloresPorcentaje[index % coloresPorcentaje.length],
-                          opacity: valor > 0 ? 1 : 0
-                        }
-                      ]} />
-                      
-                      {/* Valor numérico */}
-                      {valor > 0 && (
-                        <Text style={[
-                          styles.valorLabel,
-                          {
-                            left: x + (Math.cos(angulo) * 15),
-                            top: y + (Math.sin(angulo) * 15),
-                            color: coloresPorcentaje[index % coloresPorcentaje.length]
-                          }
-                        ]}>
-                          {valor}%
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
+            return (
+              <G key={`eje-${index}`}>
+                {/* Línea del eje */}
+                <Line
+                  x1={center}
+                  y1={center}
+                  x2={x}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.15)"
+                  strokeWidth="1"
+                />
                 
-                {/* Dibujar líneas entre los puntos */}
-                <View style={styles.poligonoLineas}>
-                  {valores.map((valor, index) => {
-                    const anguloActual = (index * 60) * (Math.PI / 180);
-                    const anguloSiguiente = ((index + 1) % 6 * 60) * (Math.PI / 180);
-                    
-                    const radioActual = (valor / 100) * radio;
-                    const radioSiguiente = (valores[(index + 1) % 6] / 100) * radio;
-                    
-                    const x1 = radioActual * Math.cos(anguloActual) + centroX;
-                    const y1 = radioActual * Math.sin(anguloActual) + centroY;
-                    const x2 = radioSiguiente * Math.cos(anguloSiguiente) + centroX;
-                    const y2 = radioSiguiente * Math.sin(anguloSiguiente) + centroY;
-                    
-                    // Calcular distancia y ángulo de la línea
-                    const distancia = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-                    const anguloLinea = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
-                    
-                    if (distancia > 0) {
-                      return (
-                        <View
-                          key={`linea-${index}`}
-                          style={[
-                            styles.lineaPoligono,
-                            {
-                              width: distancia,
-                              left: x1,
-                              top: y1,
-                              transform: [
-                                { rotate: `${anguloLinea}deg` }
-                              ],
-                              opacity: valor > 0 || valores[(index + 1) % 6] > 0 ? 0.7 : 0
-                            }
-                          ]}
-                        />
-                      );
-                    }
-                    return null;
-                  })}
-                </View>
-              </View>
-            )}
-          </View>
-          
-          {/* Leyenda de colores */}
-          <View style={styles.leyendaContainer}>
-            <Text style={styles.leyendaTitulo}>Áreas de Conocimiento:</Text>
-            <View style={styles.leyendaItems}>
-              {categorias.map((cat, index) => {
-                const testResultado = resultadosTests.find(t => t.id === index + 1);
-                const completado = testResultado?.completado || false;
+                {/* Líneas que unen vértices opuestos (las 3 líneas cruzadas) */}
+                {index < categorias.length / 2 && (
+                  <Line
+                    x1={center + radius * Math.cos(anguloActual)}
+                    y1={center + radius * Math.sin(anguloActual)}
+                    x2={center + radius * Math.cos(anguloActual + Math.PI)}
+                    y2={center + radius * Math.sin(anguloActual + Math.PI)}
+                    stroke="rgba(255,51,102,0.2)"
+                    strokeWidth="1"
+                    strokeDasharray="5,5"
+                  />
+                )}
+                
+                {/* Etiqueta de categoría */}
+                <SvgText
+                  x={center + (radius + 30) * Math.cos(anguloActual)}
+                  y={center + (radius + 30) * Math.sin(anguloActual)}
+                  fill="rgba(255,255,255,0.8)"
+                  fontSize="11"
+                  textAnchor="middle"
+                  fontWeight="500"
+                >
+                  {categorias[index].split(' ')[0]}
+                </SvgText>
+              </G>
+            );
+          })}
+
+          {/* Polígono con resultados */}
+          {valores.some(v => v > 0) && (
+            <G>
+              {/* Área del polígono */}
+              <Polygon
+                points={puntosPoligono}
+                fill="rgba(255,51,102,0.15)"
+                stroke="#ff3366"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+              
+              {/* Puntos en los vértices */}
+              {valores.map((valor, index) => {
+                if (valor === 0) return null;
+                const punto = calcularPunto(valor, index);
                 
                 return (
-                  <View key={index} style={styles.leyendaItem}>
-                    <View style={[
-                      styles.leyendaColor,
-                      { backgroundColor: coloresPorcentaje[index % coloresPorcentaje.length] }
-                    ]} />
-                    <Text style={[
-                      styles.leyendaText,
-                      completado ? styles.leyendaTextCompletado : styles.leyendaTextPendiente
-                    ]}>
-                      {cat.split(' ')[0]}
-                      {completado && ` (${testResultado.puntuacion}%)`}
-                    </Text>
-                  </View>
+                  <G key={`punto-${index}`}>
+                    <Circle
+                      cx={punto.x}
+                      cy={punto.y}
+                      r="6"
+                      fill={colores[index % colores.length]}
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                    {/* Valor numérico */}
+                    <SvgText
+                      x={punto.x}
+                      y={punto.y - 12}
+                      fill={colores[index % colores.length]}
+                      fontSize="12"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                    >
+                      {valor}%
+                    </SvgText>
+                  </G>
                 );
               })}
-            </View>
-          </View>
+            </G>
+          )}
+
+          {/* Punto central */}
+          <Circle
+            cx={center}
+            cy={center}
+            r="4"
+            fill="#ffffff"
+          />
+        </Svg>
+      </View>
+      
+      {/* Leyenda */}
+      <View style={styles.leyendaContainer}>
+        <Text style={styles.leyendaTitulo}>Resultados por área:</Text>
+        <View style={styles.leyendaGrid}>
+          {categorias.map((cat, index) => {
+            const testResultado = resultadosTests.find(t => t.id === index + 1);
+            const completado = testResultado?.completado || false;
+            const puntuacion = testResultado?.puntuacion || 0;
+            
+            return (
+              <View key={index} style={styles.leyendaItem}>
+                <View style={[styles.leyendaColorDot, { backgroundColor: colores[index] }]} />
+                <Text style={[
+                  styles.leyendaText,
+                  completado ? styles.leyendaTextCompletado : styles.leyendaTextPendiente
+                ]}>
+                  {cat.split(' ')[0]}
+                  {completado && `: ${puntuacion}%`}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
-    );
-  };
+    </View>
+  );
+};
+
+
+
+
+
+
+
+
+
+
 
   // Renderizar tests de conocimiento
   const renderConocimiento = () => {
@@ -982,6 +984,79 @@ export default function PantallaResultados({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  /*GRAFICA RADAR */
+    graficaContainer: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 25,
+    alignItems: 'center',
+  },
+  tituloGrafica: {
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtituloGrafica: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 20,
+  },
+  graficaSvgContainer: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  leyendaContainer: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 15,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  leyendaTitulo: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  leyendaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  leyendaItem: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  leyendaColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  leyendaText: {
+    fontSize: 12,
+  },
+  leyendaTextCompletado: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  leyendaTextPendiente: {
+    color: 'rgba(255,255,255,0.5)',
+  },
+
+  /* RESTO DE ESTILOS */
   fondo: {
     flex: 1,
   },

@@ -20,6 +20,7 @@ import { servicioAPI } from '../servicios/api';
 import { AuthContext } from '../AppNavegacion';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 export default function PantallaPrincipal({ navigation, route }) {
@@ -28,8 +29,8 @@ export default function PantallaPrincipal({ navigation, route }) {
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [estadisticas, setEstadisticas] = useState({
-    resultados: 0,
-    tests_completados: 0,
+    Conocimiento: 0,
+    Vocacionales: 0,
     seguidores: 0,
     seguidos: 0
   });
@@ -85,8 +86,8 @@ export default function PantallaPrincipal({ navigation, route }) {
       const stats = await servicioAPI.obtenerEstadisticasUsuario();
       if (stats.exito) {
         setEstadisticas({
-          resultados: stats.data?.resultados || stats.data?.tests_completados || 0,
-          tests_completados: stats.data?.tests_completados || stats.data?.resultados || 0,
+          conocimiento: stats.data?.resultadosTests || 0,
+          vocacionales: stats.data?.resultadosVocacionales || 0,
           seguidores: stats.data?.seguidores || 0,
           seguidos: stats.data?.seguidos || 0
         });
@@ -297,18 +298,15 @@ export default function PantallaPrincipal({ navigation, route }) {
       // Crear FormData para enviar la imagen
       const formData = new FormData();
       
-      // Convertir URI a blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Obtener nombre del archivo
+      const filename = uri.split('/').pop() || 'foto.jpg';
       
-      // Crear archivo para FormData
-      const filename = uri.split('/').pop();
-      const file = new File([blob], filename, { 
-        type: blob.type || 'image/jpeg' 
+      // Agregar archivo al FormData (React Native usa uri directamente)
+      formData.append('imagen', {
+        uri: uri,
+        type: 'image/jpeg',
+        name: filename,
       });
-      
-      // Agregar archivo al FormData
-      formData.append('imagen', file);
       
       // Determinar qué API llamar según el tipo
       let apiCall;
@@ -353,31 +351,75 @@ export default function PantallaPrincipal({ navigation, route }) {
       if (tipo === 'perfil') setCargandoFoto(false);
       if (tipo === 'portada') setCargandoPortada(false);
     }
-  };
+    };
+
+const cerrarSesionGoogle = async () => {
+  try {
+    console.log('🔐 Cerrando sesión de Google...');
+    
+    // Verificar si tiene token de Google
+    const googleToken = await AsyncStorage.getItem('googleAccessToken');
+    
+    if (googleToken) {
+      console.log('🔄 Revocando token Google...');
+      
+      try {
+        // Opcional: Revocar token en Google
+        await fetch(`https://oauth2.googleapis.com/revoke?token=${googleToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        });
+        console.log('✅ Token de Google revocado');
+      } catch (revokeError) {
+        console.log('⚠️ No se pudo revocar token Google:', revokeError.message);
+        // No es crítico, seguimos
+      }
+    }
+    
+    console.log('✅ Sesión de Google cerrada');
+  } catch (error) {
+    console.error('❌ Error cerrando sesión de Google:', error);
+  }
+};
 
   // Cerrar sesión
-  const manejarLogout = async () => {
-    Alert.alert(
-      'Cerrar sesión',
-      '¿Estás seguro de que quieres salir?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Sí, salir', 
-          onPress: async () => {
-            try {
-              await servicioAPI.cerrarSesion();
-            } catch (error) {
-              console.log('⚠️ Error en logout backend, continuando...');
-            } finally {
-              await cerrarSesion();
-              navigation.replace('Login');
-            }
+ const manejarLogout = async () => {
+  Alert.alert(
+    'Cerrar sesión',
+    '¿Estás seguro de que quieres salir?',
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { 
+        text: 'Sí, salir', 
+        onPress: async () => {
+          try {
+            // Cerrar sesión de Google si aplica
+            await cerrarSesionGoogle();
+            
+            // Cerrar sesión en el backend
+            await servicioAPI.cerrarSesion();
+          } catch (error) {
+            console.log('⚠️ Error en logout backend, continuando...');
+          } finally {
+            // Limpiar AsyncStorage
+            await AsyncStorage.multiRemove([
+              'sesionActiva',
+              'usuarioInfo', 
+              'usuarioId',
+              'token',
+              'googleAccessToken'
+            ]);
+            
+            // Navegar al login
+            navigation.replace('Login');
           }
         }
-      ]
-    );
-  };
+      }
+    ]
+  );
+};
 
   // Mostrar pantalla de carga
   if (cargando) {
@@ -495,14 +537,14 @@ export default function PantallaPrincipal({ navigation, route }) {
           {/* Estadísticas */}
           <View style={styles.contenedorEstadisticas}>
             <View style={styles.itemEstadistica}>
-              <Text style={styles.numeroEstadistica}>{estadisticas.resultados}</Text>
-              <Text style={styles.textoEstadistica}>Resultados</Text>
+              <Text style={styles.numeroEstadistica}>{estadisticas.vocacionales}</Text>
+              <Text style={styles.textoEstadistica}>Vocacional</Text>
             </View>
             
             <View style={styles.separadorVertical} />
             
             <View style={styles.itemEstadistica}>
-              <Text style={styles.numeroEstadistica}>{estadisticas.tests_completados}</Text>
+              <Text style={styles.numeroEstadistica}>{estadisticas.conocimiento}</Text>
               <Text style={styles.textoEstadistica}>Tests</Text>
             </View>
             
@@ -868,12 +910,12 @@ const styles = StyleSheet.create({
   },
   numeroEstadistica: {
     color: '#ffcc00',
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
   },
   textoEstadistica: {
     color: 'rgba(255,255,255,0.7)',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
