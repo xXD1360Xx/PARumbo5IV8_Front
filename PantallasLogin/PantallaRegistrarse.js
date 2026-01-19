@@ -9,7 +9,8 @@ import {
   Platform,
   ScrollView,
   KeyboardAvoidingView,
-  Switch
+  Switch,
+  ActivityIndicator  
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { estilos } from '../estilos/styles';
@@ -17,23 +18,55 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { servicioAPI } from '../servicios/api';
 
-export default function PantallaRegistrarse({ navigation }) {
+export default function PantallaRegistrarse({ navigation, route }) {
+  const { correo } = route.params;
+  
   const [nombre, setNombre] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(correo);
   const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [rol, setRol] = useState('');
-  const [contrasenaAdmin, setContrasenaAdmin] = useState(''); // Nueva contraseña de admin
-  const [perfilPrivado, setPerfilPrivado] = useState(false); // Checkbox perfil privado
+  const [contrasenaAdmin, setContrasenaAdmin] = useState('');
+  const [perfilPrivado, setPerfilPrivado] = useState(false);
   const [cargando, setCargando] = useState(false);
 
+  // Estados para verificación de username
+  const [usernameDisponible, setUsernameDisponible] = useState(null);
+  const [verificandoUsername, setVerificandoUsername] = useState(false);
+
   const roles = [
-    { id: 'estudiante', label: 'Estudiante explorando opciones' },
+    { id: 'explorando', label: 'Estudiante explorando opciones' },
+    { id: 'estudiante', label: 'Estudiante universitario' },
     { id: 'egresado', label: 'Estudiante egresado' },
-    { id: 'maestro', label: 'Maestro/Docente' },
+    { id: 'docente', label: 'Maestro/Docente' },
     { id: 'admin', label: 'Administrador' }
   ];
+
+  // VERIFICAR USERNAME - SIMPLE Y FUNCIONAL
+  const verificarUsername = async () => {
+    if (!usuario || usuario.trim().length < 3) {
+      setUsernameDisponible(null);
+      return;
+    }
+
+    setVerificandoUsername(true);
+    
+    try {
+      const respuesta = await servicioAPI.verificarUsername(usuario);
+      
+      if (respuesta.exito) {
+        setUsernameDisponible(respuesta.disponible || false);
+      } else {
+        setUsernameDisponible(false);
+      }
+    } catch (error) {
+      console.error('Error verificando username:', error);
+      setUsernameDisponible(false);
+    } finally {
+      setVerificandoUsername(false);
+    }
+  };
 
   const manejarRegistro = async () => {
     try {
@@ -45,26 +78,32 @@ export default function PantallaRegistrarse({ navigation }) {
         return;
       }
 
-      // Validar que se seleccionó un rol
       if (!rol) {
         Alert.alert('Error', 'Por favor selecciona tu perfil (rol)');
         return;
       }
 
-      // Validar email
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        Alert.alert('Error', 'Por favor ingresa un email válido');
-        return;
-      }
-
-      // Validar usuario (mínimo 3 caracteres)
       if (usuario.length < 3) {
         Alert.alert('Error', 'El usuario debe tener al menos 3 caracteres');
         return;
       }
 
-      // Validar contraseña (mínimo 6 caracteres)
+      // Verificar username si no se ha verificado
+      if (usernameDisponible === null && usuario.length >= 3) {
+        await verificarUsername();
+      }
+
+      // Si está verificando o no disponible, mostrar error
+      if (verificandoUsername) {
+        Alert.alert('Espera', 'Verificando disponibilidad del usuario...');
+        return;
+      }
+
+      if (usernameDisponible === false) {
+        Alert.alert('Usuario no disponible', 'El nombre de usuario no está disponible. Por favor elige otro.');
+        return;
+      }
+
       if (contrasena.length < 6) {
         Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
         return;
@@ -75,7 +114,6 @@ export default function PantallaRegistrarse({ navigation }) {
         return;
       }
 
-      // Validar contraseña de administrador si se seleccionó ese rol
       if (rol === 'admin') {
         if (!contrasenaAdmin.trim()) {
           Alert.alert('Error', 'Para registrarte como administrador necesitas ingresar la contraseña especial');
@@ -84,15 +122,12 @@ export default function PantallaRegistrarse({ navigation }) {
         
         if (contrasenaAdmin !== 'jimmyponme6xfi') {
           Alert.alert('Error', 'Contraseña de administrador incorrecta');
-          setContrasenaAdmin(''); // Limpiar campo por seguridad
+          setContrasenaAdmin('');
           return;
         }
       }
 
       console.log('✅ Validaciones pasadas, enviando registro...');
-      console.log('📤 Rol seleccionado:', rol);
-      console.log('🔒 Perfil privado:', perfilPrivado);
-
       setCargando(true);
       
       const respuesta = await servicioAPI.registrarUsuario({
@@ -101,7 +136,6 @@ export default function PantallaRegistrarse({ navigation }) {
         nombreUsuario: usuario.trim(),
         contrasena: contrasena,
         rol: rol,
-        // Nota: Aquí podrías agregar perfilPrivado si el backend lo soporta
       });
       
       console.log('📡 Respuesta del servidor:', respuesta);
@@ -109,7 +143,6 @@ export default function PantallaRegistrarse({ navigation }) {
       if (respuesta.exito) {
         console.log('✅ Registro exitoso');
         
-        // Guardar datos en AsyncStorage
         await AsyncStorage.multiSet([
           ['sesionActiva', 'true'],
           ['usuarioInfo', JSON.stringify(respuesta.usuario)],
@@ -121,10 +154,9 @@ export default function PantallaRegistrarse({ navigation }) {
 
       } else {
         Alert.alert('Error', respuesta.error || 'Error en el registro');
-        // Limpiar contraseñas en caso de error
         setContrasena('');
         setConfirmarContrasena('');
-        setContrasenaAdmin(''); // También limpiar contraseña de admin
+        setContrasenaAdmin('');
       }
       
     } catch (error) {
@@ -135,16 +167,18 @@ export default function PantallaRegistrarse({ navigation }) {
     }
   };
 
-  // Limpiar contraseña de admin cuando cambia el rol
+  // Verificar username cuando se pierde el foco (más simple)
+  const handleUsernameBlur = () => {
+    if (usuario.length >= 3) {
+      verificarUsername();
+    }
+  };
+
   useEffect(() => {
     if (rol !== 'admin') {
       setContrasenaAdmin('');
     }
   }, [rol]);
-
-  const manejarLogin = () => {
-    navigation.navigate('Login');
-  };
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -159,20 +193,25 @@ export default function PantallaRegistrarse({ navigation }) {
     >
       <SafeAreaView style={estilos.contenedorPrincipal}>
         <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
         >
           <ScrollView 
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 30 }}
+            contentContainerStyle={{ 
+              paddingBottom: 30,
+              paddingTop: Platform.OS === 'ios' ? 20 : 30
+            }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
-            {/* Título */}
             <Text style={estilos.titulo}>RUMBO</Text>
             <Text style={estilos.subtitulo}>
               Crea tu cuenta para comenzar
             </Text>
 
-            {/* Formulario de Registro */}
+            {/* Nombre completo */}
             <TextInput
               style={[estilos.contenedorInput, { marginBottom: 12 }]}
               placeholder="Nombre completo"
@@ -184,29 +223,93 @@ export default function PantallaRegistrarse({ navigation }) {
               autoCorrect={false}
             />
 
-            <TextInput
-              style={[estilos.contenedorInput, { marginBottom: 12 }]}
-              placeholder="Email"
-              placeholderTextColor="rgba(255,255,255,0.6)"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              editable={!cargando}
-              autoCorrect={false}
-            />
+            {/* Email VERIFICADO - NO editable (en rojo) */}
+            <View style={{ marginBottom: 12 }}>
+              <Text style={{
+                color: '#FF5252',
+                fontSize: 12,
+                fontWeight: '600',
+                marginBottom: 5,
+                marginLeft: 5
+              }}>
+                EMAIL VERIFICADO
+              </Text>
+              <TextInput
+                style={[
+                  estilos.contenedorInput,
+                  { 
+                    backgroundColor: 'rgba(255,82,82,0.1)',
+                    color: 'rgba(255,255,255,0.9)',
+                    borderColor: '#FF5252',
+                    borderWidth: 1
+                  }
+                ]}
+                value={email}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                editable={false}
+                autoCorrect={false}
+              />
+            </View>
 
-            <TextInput
-              style={[estilos.contenedorInput, { marginBottom: 12 }]}
-              placeholder="Nombre de usuario"
-              placeholderTextColor="rgba(255,255,255,0.6)"
-              value={usuario}
-              onChangeText={setUsuario}
-              autoCapitalize="none"
-              editable={!cargando}
-              autoCorrect={false}
-            />
+            {/* Username con verificación */}
+            <View style={{ marginBottom: 12 }}>
+              <TextInput
+                style={[
+                  estilos.contenedorInput,
+                  usuario.length >= 3 && {
+                    borderColor: 
+                      verificandoUsername ? '#FFA500' : 
+                      usernameDisponible === true ? '#4CAF50' : 
+                      usernameDisponible === false ? '#FF5252' : 
+                      'rgba(255,255,255,0.1)'
+                  }
+                ]}
+                placeholder="Usuario (mínimo 3 caracteres)"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                value={usuario}
+                onChangeText={setUsuario}
+                onBlur={handleUsernameBlur}
+                autoCapitalize="none"
+                editable={!cargando}
+                autoCorrect={false}
+              />
+              
+              {/* Indicador CLARO de disponibilidad */}
+              {usuario.length >= 3 && (
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center', 
+                  marginTop: 5,
+                  marginLeft: 5 
+                }}>
+                  {verificandoUsername ? (
+                    <>
+                      <ActivityIndicator size="small" color="#FFA500" />
+                      <Text style={{ color: '#FFA500', fontSize: 12, marginLeft: 8 }}>
+                        Verificando disponibilidad...
+                      </Text>
+                    </>
+                  ) : usernameDisponible === false ? (
+                    <>
+                      <Text style={{ color: '#4CAF50', fontSize: 12 }}>✓</Text>
+                      <Text style={{ color: '#4CAF50', fontSize: 12, marginLeft: 8 }}>
+                        Usuario DISPONIBLE
+                      </Text>
+                    </>
+                  ) : usernameDisponible === true ? (
+                    <>
+                      <Text style={{ color: '#4CAF50', fontSize: 12 }}>✓</Text>
+                      <Text style={{ color: '#4CAF50', fontSize: 12, marginLeft: 8 }}>
+                        Usuario DISPONIBLE
+                      </Text>
+                    </>
+                  ) : null}
+                </View>
+              )}
+            </View>
 
+            {/* Contraseñas */}
             <TextInput
               style={[estilos.contenedorInput, { marginBottom: 12 }]}
               placeholder="Contraseña (mínimo 6 caracteres)"
@@ -256,25 +359,21 @@ export default function PantallaRegistrarse({ navigation }) {
                     borderColor: rol === item.id ? '#ff3366' : 'rgba(255,255,255,0.5)',
                     backgroundColor: rol === item.id ? '#ff3366' : 'transparent',
                     marginRight: 12,
-                    justifyContent: 'center',
-                    alignItems: 'center'
                   }}>
                     {rol === item.id && (
-                      <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: 'white', fontSize: 12 }}>✓</Text>
+                      </View>
                     )}
                   </View>
-                  <Text style={{
-                    color: 'white',
-                    fontSize: 16,
-                    flex: 1
-                  }}>
+                  <Text style={{ color: 'white', fontSize: 16, flex: 1 }}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Campo para contraseña de administrador (solo visible si rol es admin) */}
+            {/* Contraseña de admin */}
             {rol === 'admin' && (
               <View style={{ marginBottom: 20 }}>
                 <Text style={[estilos.subtitulo, { fontSize: 16, marginBottom: 8 }]}>
@@ -293,14 +392,13 @@ export default function PantallaRegistrarse({ navigation }) {
                   color: 'rgba(255,255,255,0.7)',
                   fontSize: 12,
                   marginTop: 6,
-                  fontStyle: 'italic'
                 }}>
                   Se requiere contraseña especial para crear cuenta de administrador
                 </Text>
               </View>
             )}
 
-            {/* Checkbox de Perfil Privado */}
+            {/* Perfil privado */}
             <View style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -320,41 +418,14 @@ export default function PantallaRegistrarse({ navigation }) {
                 style={{ marginRight: 12 }}
               />
               <View style={{ flex: 1 }}>
-                <Text style={{
-                  color: 'white',
-                  fontSize: 16,
-                  fontWeight: 'bold',
-                  marginBottom: 4
-                }}>
+                <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginBottom: 4 }}>
                   Perfil Privado
                 </Text>
-                <Text style={{
-                  color: 'rgba(255,255,255,0.7)',
-                  fontSize: 13,
-                  lineHeight: 18
-                }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 18 }}>
                   Tu perfil solo será visible para los usuarios que sigues.
                   {perfilPrivado ? ' (Activado)' : ' (Desactivado por defecto)'}
                 </Text>
               </View>
-            </View>
-
-            {/* Información adicional */}
-            <View style={{ 
-              marginBottom: 20, 
-              backgroundColor: 'rgba(255,255,255,0.05)', 
-              padding: 12, 
-              borderRadius: 10,
-              borderLeftWidth: 3,
-              borderLeftColor: '#4CAF50'
-            }}>
-              <Text style={{
-                color: 'white',
-                fontSize: 13,
-                lineHeight: 18
-              }}>
-                <Text style={{ fontWeight: 'bold', color: '#4CAF50' }}>Importante:</Text> Esta selección ayudará a personalizar tu experiencia en Rumbo. Puedes cambiar esta configuración más tarde en tu perfil.
-              </Text>
             </View>
 
             {/* Botón de Registro */}
@@ -374,7 +445,7 @@ export default function PantallaRegistrarse({ navigation }) {
 
             {/* Enlace para ir a Login */}
             <TouchableOpacity 
-              onPress={manejarLogin}
+              onPress={() => navigation.navigate('Login')}
               disabled={cargando}
               style={{ alignItems: 'center', marginBottom: 24 }}
             >
@@ -383,10 +454,8 @@ export default function PantallaRegistrarse({ navigation }) {
               </Text>
             </TouchableOpacity>
 
-            {/* Separador */}
+            {/* Google Login */}
             <View style={estilos.separador} />
-
-            {/* Google Login (opcional en registro) */}
             <Text style={estilos.subtituloInferior}>O regístrate con</Text>
 
             <View style={estilos.contenedorRedes}>
@@ -411,7 +480,7 @@ export default function PantallaRegistrarse({ navigation }) {
               <Text style={estilos.textoFooter}>© 2025 Rumbo</Text>
             </View>
 
-            {/* Loading Overlay */}
+            {/* Loading */}
             {cargando && (
               <View style={estilos.contenedorCargando}>
                 <Text style={estilos.textoCargando}>Registrando...</Text>

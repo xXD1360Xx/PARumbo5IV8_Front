@@ -19,16 +19,13 @@ const { width } = Dimensions.get('window');
 
 export default function PantallaReset({ navigation, route }) {
   const { correo } = route.params || {};
-  const [contrasenaActual, setContrasenaActual] = useState('');
   const [nuevaContrasena, setNuevaContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [mostrarContrasenaActual, setMostrarContrasenaActual] = useState(false);
   const [mostrarNuevaContrasena, setMostrarNuevaContrasena] = useState(false);
   const [mostrarConfirmarContrasena, setMostrarConfirmarContrasena] = useState(false);
 
   const limpiarContrasenas = () => { 
-    setContrasenaActual('');
     setNuevaContrasena('');
     setConfirmarContrasena('');
   };
@@ -77,7 +74,7 @@ export default function PantallaReset({ navigation, route }) {
 
   const cambiarContrasena = async () => {
     // Validaciones
-    if (!contrasenaActual || !nuevaContrasena || !confirmarContrasena) {
+    if (!nuevaContrasena || !confirmarContrasena) {
       Alert.alert('Campos incompletos', 'Por favor, completa todos los campos');
       return;
     }
@@ -86,11 +83,6 @@ export default function PantallaReset({ navigation, route }) {
       Alert.alert('Contraseñas no coinciden', 'Las nuevas contraseñas no coinciden');
       setNuevaContrasena('');
       setConfirmarContrasena('');
-      return;
-    }
-
-    if (contrasenaActual === nuevaContrasena) {
-      Alert.alert('Misma contraseña', 'La nueva contraseña debe ser diferente a la actual');
       return;
     }
 
@@ -127,49 +119,62 @@ export default function PantallaReset({ navigation, route }) {
     realizarCambio();
   };
 
-  const realizarCambio = async () => {
-    setCargando(true);
+ const realizarCambio = async () => {
+  setCargando(true);
 
-    try {
-      const datos = await servicioAPI.cambiarContrasena(contrasenaActual, nuevaContrasena);
-
-      if (datos.exito) {
-        Alert.alert(
-          'Contraseña actualizada',
-          'Tu contraseña ha sido cambiada exitosamente. Serás redirigido al inicio de sesión.',
-          [
-            { 
-              text: 'Continuar', 
-              onPress: () => {
-                limpiarContrasenas();
-                navigation.replace('Login');
-              }
-            }
-          ]
-        );
-      } else {
-        let mensaje = datos.error || 'No se pudo cambiar la contraseña';
-        
-        if (datos.codigo === 'CONTRASENA_ACTUAL_INCORRECTA') {
-          mensaje = 'La contraseña actual es incorrecta';
-          setContrasenaActual('');
-        }
-        
-        Alert.alert('Error', mensaje);
-      }
-    } catch (error) {
-      console.error('Error al cambiar contraseña:', error);
+  try {
+    const { correo } = route.params || {};
+    
+    console.log("📝 Restableciendo contraseña para:", correo);
+    
+    if (!correo || !nuevaContrasena || !confirmarContrasena) {
       Alert.alert(
-        'Error de conexión',
-        'No se pudo conectar con el servidor. Verifica tu conexión a internet.'
+        'Datos incompletos',
+        'Falta información necesaria.'
       );
-    } finally {
       setCargando(false);
+      return;
     }
-  };
+
+    // Solo correo y nueva contraseña
+    const datos = await servicioAPI.restablecerContrasena(correo, nuevaContrasena);
+
+    if (datos.exito) {
+      Alert.alert(
+        '✅ Contraseña actualizada',
+        'Tu contraseña ha sido restablecida exitosamente. Ahora puedes iniciar sesión.',
+        [
+          { 
+            text: 'Ir a inicio de sesión', 
+            onPress: () => {
+              limpiarContrasenas();
+              navigation.replace('Login');
+            }
+          }
+        ]
+      );
+    } else {
+      let mensaje = datos.error || 'No se pudo restablecer la contraseña';
+      
+      if (datos.codigo === 'USUARIO_NO_ENCONTRADO') {
+        mensaje = 'No se encontró una cuenta con ese correo.';
+      }
+      
+      Alert.alert('❌ Error', mensaje);
+    }
+  } catch (error) {
+    console.error('Error al cambiar contraseña:', error);
+    Alert.alert(
+      'Error de conexión',
+      'No se pudo conectar con el servidor. Verifica tu conexión a internet.'
+    );
+  } finally {
+    setCargando(false);
+  }
+};
 
   const regresar = () => {
-    if (contrasenaActual || nuevaContrasena || confirmarContrasena) {
+    if (nuevaContrasena || confirmarContrasena) {
       Alert.alert(
         '¿Descartar cambios?',
         'Tienes cambios sin guardar. ¿Seguro que quieres regresar?',
@@ -216,32 +221,6 @@ export default function PantallaReset({ navigation, route }) {
               <Text style={styles.subtitulo}>
                 Por seguridad, actualiza tu contraseña regularmente
               </Text>
-            </View>
-
-            {/* Campo: Contraseña actual */}
-            <View style={styles.campoContainer}>
-              <Text style={styles.campoLabel}>CONTRASEÑA ACTUAL</Text>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ingresa tu contraseña actual"
-                  placeholderTextColor="rgba(255,255,255,0.4)"
-                  value={contrasenaActual}
-                  onChangeText={setContrasenaActual}
-                  secureTextEntry={!mostrarContrasenaActual}
-                  editable={!cargando}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity
-                  style={styles.botonOjo}
-                  onPress={() => setMostrarContrasenaActual(!mostrarContrasenaActual)}
-                  disabled={cargando}
-                >
-                  <Text style={styles.textoOjo}>
-                    {mostrarContrasenaActual ? 'Ocultar' : 'Mostrar'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
 
             {/* Campo: Nueva contraseña */}
@@ -370,7 +349,7 @@ export default function PantallaReset({ navigation, route }) {
                   styles.botonPrincipal,
                   cargando && styles.botonDeshabilitado
                 ]}
-                disabled={cargando || !contrasenaActual || !nuevaContrasena || !confirmarContrasena}
+                disabled={cargando || !nuevaContrasena || !confirmarContrasena}
               >
                 {cargando ? (
                   <ActivityIndicator size="small" color="#fff" />

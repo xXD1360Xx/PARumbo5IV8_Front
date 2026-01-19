@@ -70,31 +70,40 @@ const enviarCorreo = async () => {
       );
     } else {
       Alert.alert(
-        '❌ Error',
-        resultado.error || 'No se pudo enviar el código'
+        '⚠️ Correo no enviado',
+        `No se pudo enviar el correo, pero puedes usar este código:\n\n🔑 ${codigo}`,
+        [{ 
+          text: 'Usar este código', 
+          onPress: () => navigation.navigate('VerificarID', { 
+            modo, 
+            correo, 
+            codigo 
+          }) 
+        }],
+        { cancelable: false }
       );
     }
-  } catch (error) {
-    console.error("Error al enviar correo:", error);
-    
-    // Fallback: mostrar código si falla el envío
-    Alert.alert(
-      '⚠️ Correo no enviado',
-      `No se pudo enviar el correo, pero puedes usar este código:\n\n🔑 ${codigo}`,
-      [{ 
-        text: 'Usar este código', 
-        onPress: () => navigation.navigate('VerificarID', { 
-          modo, 
-          correo, 
-          codigo 
-        }) 
-      }],
-      { cancelable: false }
-    );
-  } finally {
-    setCargando(false);
-  }
-};
+    } catch (error) {
+      console.error("Error al enviar correo:", error);
+
+      // SOLO Alert, la navegación ocurre cuando se presiona el botón
+      Alert.alert(
+        '⚠️ Correo no enviado',
+        `No se pudo enviar el correo, pero puedes usar este código:\n\n🔑 ${codigo}`,
+        [{ 
+          text: 'Usar este código', 
+          onPress: () => navigation.navigate('VerificarID', { 
+            modo, 
+            correo, 
+            codigo 
+          }) 
+        }],
+        { cancelable: false }
+      );
+    } finally {
+        setCargando(false);
+      }
+    };
 
   const regresar = () => {
     if (correo.trim() !== '') {

@@ -39,11 +39,14 @@ export default function PantallaEditar({ navigation }) {
   const [modalAdminVisible, setModalAdminVisible] = useState(false);
   const [contrasenaAdmin, setContrasenaAdmin] = useState('');
 
+
+
   // Roles disponibles
   const rolesDisponibles = [
-    { id: 'estudiante', nombre: 'Estudiante', descripcion: 'Actualmente estudiando' },
+    { id: 'explorando', nombre: 'Estudiante explorando', descripcion: 'Actualmente estudiando la preparatoria' },
+    { id: 'estudiante', nombre: 'Estudiante universitario', descripcion: 'Actualmente estudiando la universidad' },
     { id: 'egresado', nombre: 'Egresado', descripcion: 'Ya terminó sus estudios' },
-    { id: 'maestro', nombre: 'Maestro', descripcion: 'Profesor o instructor' },
+    { id: 'docente', nombre: 'Docente', descripcion: 'Profesor o instructor' },
     { id: 'admin', nombre: 'Administrador', descripcion: 'Acceso completo al sistema' },
   ];
 

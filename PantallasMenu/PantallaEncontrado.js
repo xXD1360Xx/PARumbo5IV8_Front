@@ -201,10 +201,13 @@ export default function PantallaEncontrado({ navigation, route }) {
               {usuario.rol && !esPrivado && (
                 <View style={styles.badgeRol}>
                   <Text style={styles.textoBadgeRol}>
-                    {usuario.rol === 'estudiante' ? '🎓 Estudiante' :
-                     usuario.rol === 'egresado' ? '👨‍🎓 Egresado' :
-                     usuario.rol === 'maestro' ? '👨‍🏫 Maestro' :
-                     usuario.rol === 'admin' ? '👑 Administrador' : usuario.rol}
+                    {usuario.rol === 'admin' ? '👑 Administrador' :
+                    usuario.rol === 'explorando' ? '🔍 Explorando' :
+                    usuario.rol === 'estudiante' ? '🎓 Universitario' :
+                    usuario.rol === 'egresado' ? '👨‍🎓 Egresado' :
+                    usuario.rol === 'docente' ? '👨‍🏫 Docente' :
+                    usuario.rol === 'profesor' ? '👨‍🏫 Profesor' :
+                    usuario.rol || '🔍 Explorando'}
                   </Text>
                 </View>
               )}

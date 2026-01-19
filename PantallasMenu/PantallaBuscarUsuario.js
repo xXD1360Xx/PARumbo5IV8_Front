@@ -37,12 +37,17 @@ export default function PantallaBuscarUsuario({ navigation }) {
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [cargandoSugerencias, setCargandoSugerencias] = useState(false);
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
+  const [filtroPerfilVocacional, setFiltroPerfilVocacional] = useState('todos');
+  const [filtroAreaConocimiento, setFiltroAreaConocimiento] = useState('todas');
+  const [testsConocimientoCompletados, setTestsConocimientoCompletados] = useState(0);
+
 
   // Cargar perfil del usuario actual y resultados vocacionales
   useEffect(() => {
     cargarPerfilUsuario();
     cargarResultadosVocacionales();
     cargarBusquedasRecientes();
+    cargarEstadisticasTests(); 
   }, []);
 
   // Cargar perfil del usuario
@@ -128,64 +133,91 @@ export default function PantallaBuscarUsuario({ navigation }) {
     }
   }, []);
 
-  // Buscar usuarios
-  const buscarUsuario = async () => {
-    const termino = terminoBusqueda.trim();
+// Buscar usuarios CON FILTROS
+const buscarUsuario = async () => {
+  const termino = terminoBusqueda.trim();
+  
+  if (!termino && filtroRol === 'todos') {
+    Alert.alert('Búsqueda vacía', 'Ingresa un término de búsqueda o selecciona un filtro');
+    return;
+  }
+
+  Keyboard.dismiss();
+  setCargando(true);
+  setMostrarSugerencias(false);
+  setBusquedaRealizada(true);
+
+  try {
+    let respuesta;
     
-    if (!termino && filtroRol === 'todos') {
-      Alert.alert('Búsqueda vacía', 'Ingresa un término de búsqueda o selecciona un filtro');
-      return;
+    // Si hay término, buscar por término
+    if (termino) {
+      respuesta = await servicioAPI.buscarUsuarios(termino);
+      guardarBusquedaReciente(termino);
+    } else {
+      // Usar la nueva API de filtros avanzados
+      const datosFiltros = {
+        rol: filtroRol,
+        carrera: filtroCarrera,
+        perfilVocacional: filtroPerfilVocacional,
+        areaConocimiento: filtroAreaConocimiento,
+        pagina: 1,
+        limite: 50
+      };
+      
+      respuesta = await servicioAPI.buscarUsuariosConFiltros(datosFiltros);
     }
+    
+    if (respuesta.exito && respuesta.data && Array.isArray(respuesta.data)) {
+      let usuariosFiltrados = respuesta.data.filter(usuario => 
+        usuario && (usuario.id || usuario.nombre_usuario)
+      );
 
-    Keyboard.dismiss();
-    setCargando(true);
-    setMostrarSugerencias(false);
-    setBusquedaRealizada(true);
-
-    try {
-      let respuesta;
-      
-      // Si hay término, buscar por término
-      if (termino) {
-        respuesta = await servicioAPI.buscarUsuarios(termino);
-        guardarBusquedaReciente(termino);
+      if (usuariosFiltrados.length > 0) {
+        setResultados(usuariosFiltrados);
       } else {
-        // Buscar por rol
-        respuesta = await servicioAPI.buscarUsuariosPorRol(filtroRol);
-      }
-      
-      if (respuesta.exito && respuesta.data && Array.isArray(respuesta.data)) {
-        // Filtrar según el filtro de carrera si está activo
-        let usuariosFiltrados = respuesta.data.filter(usuario => 
-          usuario && (usuario.id || usuario.nombre_usuario)
+        Alert.alert(
+          'Sin resultados', 
+          `No se encontraron usuarios con los filtros aplicados`
         );
-
-        // Aplicar filtro de carrera si está seleccionado
-        if (filtroRol === 'estudiante' && filtroCarrera !== 'todas' && perfilVocacional) {
-          usuariosFiltrados = filtrarPorCarrera(usuariosFiltrados);
-        }
-
-        if (usuariosFiltrados.length > 0) {
-          setResultados(usuariosFiltrados);
-        } else {
-          Alert.alert(
-            'Sin resultados', 
-            `No se encontraron usuarios con "${termino || filtroRol}"`
-          );
-          setResultados([]);
-        }
-      } else {
-        Alert.alert('Error', respuesta.error || 'Error al realizar la búsqueda');
         setResultados([]);
       }
-    } catch (error) {
-      console.error('❌ Error buscando usuario:', error);
-      Alert.alert('Error', 'No se pudo conectar con el servidor');
+    } else {
+      Alert.alert('Error', respuesta.error || 'Error al realizar la búsqueda');
       setResultados([]);
-    } finally {
-      setCargando(false);
     }
-  };
+  } catch (error) {
+    console.error('❌ Error buscando usuario:', error);
+    Alert.alert('Error', 'No se pudo conectar con el servidor');
+    setResultados([]);
+  } finally {
+    setCargando(false);
+  }
+};
+
+// Cargar estadísticas de tests de conocimiento
+const cargarEstadisticasTests = async () => {
+  try {
+    const respuesta = await servicioAPI.obtenerEstadisticasUsuario();
+    if (respuesta.exito && respuesta.data) {
+      return respuesta.data.resultadosTests || 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error('❌ Error cargando estadísticas de tests:', error);
+    return 0;
+  }
+};
+
+// Función para aplicar filtros localmente (temporal)
+const aplicarFiltrosLocales = (usuarios) => {
+  // Por ahora, devolver una muestra aleatoria como placeholder
+  // Más adelante, cuando tengas los datos reales en la BD, podrás filtrar correctamente
+  if (filtroRol !== 'todos') {
+    return usuarios.filter(usuario => Math.random() > 0.5);
+  }
+  return usuarios;
+};
 
   // Filtrar por carrera/área basado en perfil vocacional
   const filtrarPorCarrera = (usuarios) => {
@@ -265,11 +297,74 @@ export default function PantallaBuscarUsuario({ navigation }) {
     buscarUsuario();
   };
 
-  // Aplicar filtros
-  const aplicarFiltros = () => {
-    setModalFiltrosVisible(false);
-    buscarUsuario();
-  };
+// Aplicar filtros
+const aplicarFiltros = () => {
+  // Validaciones antes de aplicar filtros
+  
+  // 1. Validar filtro de carrera
+  if (['explorando', 'estudiante', 'egresado'].includes(filtroRol)) {
+    if (filtroCarrera === 'misma') {
+      // Verificar si el usuario tiene carrera registrada
+      if (!perfilUsuario || !perfilUsuario.carrera_actual) {
+        const mensaje = filtroRol === 'explorando'
+          ? 'Para usar este filtro, agrega tu carrera técnica de interés en la sección Editar Perfil'
+          : filtroRol === 'estudiante'
+          ? 'Para usar este filtro, agrega tu carrera en curso en la sección Editar Perfil'
+          : 'Para usar este filtro, agrega tu carrera cursada en la sección Editar Perfil';
+        
+        Alert.alert('Información requerida', mensaje, [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Ir a Editar Perfil', 
+            onPress: () => {
+              setModalFiltrosVisible(false);
+              navigation.navigate('EditarPerfil');
+            }
+          }
+        ]);
+        return;
+      }
+    }
+  }
+  
+  // 2. Validar filtro de perfil vocacional
+  if (['explorando', 'estudiante', 'egresado'].includes(filtroRol)) {
+    if (filtroPerfilVocacional !== 'todos' && !perfilVocacional) {
+      Alert.alert('Test Vocacional requerido', 'Para usar este filtro, debes completar el test vocacional primero.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Hacer Test Vocacional', 
+          onPress: () => {
+            setModalFiltrosVisible(false);
+            navigation.navigate('TestVocacional');
+          }
+        }
+      ]);
+      return;
+    }
+  }
+  
+  // 3. Validar filtro de área de conocimiento
+  if (['explorando', 'estudiante', 'egresado'].includes(filtroRol)) {
+    if (filtroAreaConocimiento !== 'todas' && estadisticas.conocimiento < 3) {
+      Alert.alert('Tests requeridos', 'Para usar este filtro, debes completar al menos 3 tests de conocimiento.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Ver Tests', 
+          onPress: () => {
+            setModalFiltrosVisible(false);
+            navigation.navigate('Tests');
+          }
+        }
+      ]);
+      return;
+    }
+  }
+  
+  // Si pasó todas las validaciones, cerrar modal y ejecutar búsqueda
+  setModalFiltrosVisible(false);
+  buscarUsuario();
+};
 
   // Renderizar sugerencias
   const renderSugerencia = ({ item }) => (
@@ -295,11 +390,13 @@ export default function PantallaBuscarUsuario({ navigation }) {
   const renderUsuario = ({ item }) => {
     const getRolInfo = () => {
       switch(item.rol) {
-        case 'estudiante': return { icono: '🎓', color: '#4A90E2', label: 'Estudiante' };
-        case 'egresado': return { icono: '👨‍🎓', color: '#50E3C2', label: 'Egresado' };
-        case 'maestro': return { icono: '👨‍🏫', color: '#FFCE56', label: 'Maestro' };
-        case 'admin': return { icono: '👑', color: '#9B59B6', label: 'Admin' };
-        default: return { icono: '👤', color: '#FF6B6B', label: 'Usuario' };
+      case 'admin': return { icono: '👑', color: '#9B59B6', label: 'Administrador' };
+      case 'explorando': return { icono: '🔍', color: '#50E3C2', label: 'Explorando' };
+      case 'estudiante': return { icono: '🎓', color: '#4A90E2', label: 'Universitario' };
+      case 'egresado': return { icono: '🎉', color: '#FF6B6B', label: 'Egresado' };
+      case 'docente': return { icono: '👩‍🏫', color: '#FFCE56', label: 'Docente' };
+      case 'profesor': return { icono: '👨‍🏫', color: '#FFCE56', label: 'Docente' };
+      default: return { icono: '🔍', color: '#50E3C2', label: 'Explorando' }; // Valor por defecto
       }
     };
 
@@ -394,214 +491,348 @@ export default function PantallaBuscarUsuario({ navigation }) {
     </TouchableOpacity>
   );
 
-  // Modal de filtros
-  const renderModalFiltros = () => (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={modalFiltrosVisible}
-      onRequestClose={() => setModalFiltrosVisible(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <LinearGradient
-          colors={['#000000', '#8a003a', '#000000']}
-          style={styles.modalContent}
-        >
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitulo}>Filtros de Búsqueda</Text>
-            <TouchableOpacity 
-              onPress={() => setModalFiltrosVisible(false)}
-              style={styles.modalCloseButton}
-            >
-              <Icon name="close" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
+// Modal de filtros
+const renderModalFiltros = () => (
+  <Modal
+    animationType="slide"
+    transparent={true}
+    visible={modalFiltrosVisible}
+    onRequestClose={() => setModalFiltrosVisible(false)}
+  >
+    <View style={styles.modalOverlay}>
+      <LinearGradient
+        colors={['#000000', '#8a003a', '#000000']}
+        style={styles.modalContent}
+      >
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitulo}>Filtros de Búsqueda</Text>
+          <TouchableOpacity 
+            onPress={() => setModalFiltrosVisible(false)}
+            style={styles.modalCloseButton}
+          >
+            <Icon name="close" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
 
-          <FlatList
-            data={[]}
-            renderItem={null}
-            ListHeaderComponent={
-              <>
-                {/* Filtro por rol */}
+        <FlatList
+          data={[]}
+          renderItem={null}
+          ListHeaderComponent={
+            <>
+              {/* Filtro por rol */}
+              <View style={styles.filtroSeccion}>
+                <Text style={styles.filtroTitulo}>Rol del Usuario</Text>
+                <View style={styles.filtroOpciones}>
+                  {[
+                    { id: 'todos', label: '👥 Todos', color: '#FF6B6B' },
+                    { id: 'explorando', label: '🔍 Explorando', color: '#50E3C2' },
+                    { id: 'estudiante', label: '🎓 Universitarios', color: '#4A90E2' },
+                    { id: 'egresado', label: '🎉 Egresados', color: '#9B59B6' },
+                    { id: 'docente', label: '👨‍🏫 Docentes', color: '#FFCE56' },
+                    { id: 'admin', label: '👑 Administradores', color: '#FF6B6B' },
+                  ].map((rol) => (
+                    <TouchableOpacity
+                      key={rol.id}
+                      style={[
+                        styles.filtroOpcion,
+                        { borderColor: rol.color },
+                        filtroRol === rol.id && { backgroundColor: `${rol.color}20` }
+                      ]}
+                      onPress={() => {
+                        setFiltroRol(rol.id);
+                        setFiltroCarrera('todas');
+                        setFiltroPerfilVocacional('todos');
+                        setFiltroAreaConocimiento('todas');
+                      }}
+                    >
+                      <Text style={[
+                        styles.filtroOpcionTexto,
+                        filtroRol === rol.id && { color: rol.color, fontWeight: 'bold' }
+                      ]}>
+                        {rol.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Filtro de carrera (solo para explorando, estudiante y egresado) */}
+              {['explorando', 'estudiante', 'egresado'].includes(filtroRol) && (
                 <View style={styles.filtroSeccion}>
-                  <Text style={styles.filtroTitulo}>Rol del Usuario</Text>
+                  <Text style={styles.filtroTitulo}>Filtrar por Carrera</Text>
+                  <Text style={styles.filtroSubtitulo}>
+                    {filtroRol === 'explorando' 
+                      ? 'Carrera técnica de interés' 
+                      : filtroRol === 'estudiante' 
+                      ? 'Carrera en curso' 
+                      : 'Carrera cursada'}
+                  </Text>
+                  <View style={styles.filtroOpciones}>
+                    <TouchableOpacity
+                      style={[
+                        styles.filtroOpcion,
+                        { borderColor: '#4A90E2' },
+                        filtroCarrera === 'todas' && { backgroundColor: '#4A90E220' }
+                      ]}
+                      onPress={() => setFiltroCarrera('todas')}
+                    >
+                      <Text style={[
+                        styles.filtroOpcionTexto,
+                        filtroCarrera === 'todas' && { color: '#4A90E2', fontWeight: 'bold' }
+                      ]}>
+                        Todas las carreras
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.filtroOpcion,
+                        { borderColor: '#50E3C2' },
+                        filtroCarrera === 'misma' && { backgroundColor: '#50E3C220' }
+                      ]}
+                      onPress={() => {
+                        if (!perfilUsuario || !perfilUsuario.carrera_actual) {
+                          Alert.alert(
+                            'Información requerida',
+                            filtroRol === 'explorando'
+                              ? 'Para usar este filtro, agrega tu carrera técnica de interés en la sección Editar Perfil'
+                              : filtroRol === 'estudiante'
+                              ? 'Para usar este filtro, agrega tu carrera en curso en la sección Editar Perfil'
+                              : 'Para usar este filtro, agrega tu carrera cursada en la sección Editar Perfil',
+                            [
+                              { text: 'Cancelar' },
+                              { 
+                                text: 'Ir a Editar Perfil', 
+                                onPress: () => {
+                                  setModalFiltrosVisible(false);
+                                  navigation.navigate('EditarPerfil');
+                                }
+                              }
+                            ]
+                          );
+                        } else {
+                          setFiltroCarrera('misma');
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.filtroOpcionTexto,
+                        filtroCarrera === 'misma' && { color: '#50E3C2', fontWeight: 'bold' }
+                      ]}>
+                        De mi misma carrera
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.filtroOpcion,
+                        { borderColor: '#FFCE56' },
+                        filtroCarrera === 'otra' && { backgroundColor: '#FFCE5620' }
+                      ]}
+                      onPress={() => setFiltroCarrera('otra')}
+                    >
+                      <Text style={[
+                        styles.filtroOpcionTexto,
+                        filtroCarrera === 'otra' && { color: '#FFCE56', fontWeight: 'bold' }
+                      ]}>
+                        De otras carreras
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Filtro de perfil vocacional (solo para explorando, estudiante y egresado) */}
+              {['explorando', 'estudiante', 'egresado'].includes(filtroRol) && (
+                <View style={styles.filtroSeccion}>
+                  <Text style={styles.filtroTitulo}>Filtrar por Perfil Vocacional</Text>
+                  <View style={styles.filtroOpcionesGrid}>
+                    {[
+                      { id: 'Tecnológico', color: '#4A90E2' },
+                      { id: 'Científico', color: '#50E3C2' },
+                      { id: 'Salud', color: '#FF6B6B' },
+                      { id: 'Administrativo', color: '#9B59B6' },
+                      { id: 'Social', color: '#FFCE56' },
+                    ].map((perfil) => (
+                      <TouchableOpacity
+                        key={perfil.id}
+                        style={[
+                          styles.filtroOpcionPequena,
+                          { borderColor: perfil.color },
+                          filtroPerfilVocacional === perfil.id && { backgroundColor: `${perfil.color}20` }
+                        ]}
+                        onPress={() => {
+                          if (!perfilVocacional) {
+                            Alert.alert(
+                              'Test Vocacional requerido',
+                              'Para usar este filtro, debes completar el test vocacional primero.',
+                              [
+                                { text: 'Cancelar' },
+                                { 
+                                  text: 'Hacer Test Vocacional', 
+                                  onPress: () => {
+                                    setModalFiltrosVisible(false);
+                                    navigation.navigate('TestVocacional');
+                                  }
+                                }
+                              ]
+                            );
+                          } else {
+                            setFiltroPerfilVocacional(perfil.id);
+                          }
+                        }}
+                      >
+                        <Text style={[
+                          styles.filtroOpcionTextoPequena,
+                          filtroPerfilVocacional === perfil.id && { color: perfil.color, fontWeight: 'bold' }
+                        ]}>
+                          {perfil.id}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  <TouchableOpacity
+                    key="todos"
+                    style={[
+                      styles.filtroOpcion,
+                      { borderColor: '#FF6B6B' },
+                      filtroRol === 'todos' && { backgroundColor: '#FF6B6B20' }
+                    ]}
+                    onPress={() => {
+                      setFiltroRol('todos');
+                      setFiltroCarrera('todas');
+                      setFiltroPerfilVocacional('todos');
+                      setFiltroAreaConocimiento('todas');
+                      // También puedes hacer la búsqueda inmediatamente si quieres
+                    }}
+                  >
+                    <Text style={[
+                      styles.filtroOpcionTexto,
+                      filtroRol === 'todos' && { color: '#FF6B6B', fontWeight: 'bold' }
+                    ]}>
+                      👥 Todos
+                    </Text>
+                  </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Filtro de área de conocimiento (para explorando, estudiante, egresado y docente) */}
+              {['explorando', 'estudiante', 'egresado', 'docente'].includes(filtroRol) && (
+                <View style={styles.filtroSeccion}>
+                  <Text style={styles.filtroTitulo}>Filtrar por Área de Conocimiento</Text>
                   <View style={styles.filtroOpciones}>
                     {[
-                      { id: 'todos', label: '👥 Todos', color: '#FF6B6B' },
-                      { id: 'estudiante', label: '🎓 Estudiantes', color: '#4A90E2' },
-                      { id: 'egresado', label: '👨‍🎓 Egresados', color: '#50E3C2' },
-                      { id: 'maestro', label: '👨‍🏫 Maestros', color: '#FFCE56' },
-                      { id: 'admin', label: '👑 Administradores', color: '#9B59B6' },
-                    ].map((rol) => (
+                      { id: 'todas', label: 'Todas las áreas', color: '#4A90E2' },
+                      { id: 'fisico_matematicas', label: 'Ciencias Físico-Matemáticas e Ingenierías', color: '#50E3C2' },
+                      { id: 'biologicas_salud', label: 'Ciencias Biológicas y de la Salud', color: '#FF6B6B' },
+                      { id: 'sociales_humanidades', label: 'Ciencias Sociales y Humanidades', color: '#9B59B6' },
+                      { id: 'economicas_administrativas', label: 'Ciencias Económicas y Administrativas', color: '#FFCE56' },
+                      { id: 'artes_diseno', label: 'Artes y Diseño', color: '#FF6B6B' },
+                    ].map((area) => (
                       <TouchableOpacity
-                        key={rol.id}
+                        key={area.id}
                         style={[
                           styles.filtroOpcion,
-                          { borderColor: rol.color },
-                          filtroRol === rol.id && { backgroundColor: `${rol.color}20` }
+                          { borderColor: area.color },
+                          filtroAreaConocimiento === area.id && { backgroundColor: `${area.color}20` }
                         ]}
-                        onPress={() => setFiltroRol(rol.id)}
+                        onPress={() => {
+                          // Verificar si es estudiante y ha completado tests
+                          if (['explorando', 'estudiante', 'egresado'].includes(filtroRol)) {
+                            // Aquí necesitarías obtener el conteo de tests del usuario
+                            // Por ahora lo dejamos como placeholder
+                            const testsCompletados = 0; // Obtener de la API
+                            if (testsCompletados < 3) {
+                              Alert.alert(
+                                'Tests requeridos',
+                                'Para usar este filtro, debes completar al menos 3 tests de conocimiento.',
+                                [
+                                  { text: 'Cancelar' },
+                                  { 
+                                    text: 'Ver Tests', 
+                                    onPress: () => {
+                                      setModalFiltrosVisible(false);
+                                      navigation.navigate('Tests');
+                                    }
+                                  }
+                                ]
+                              );
+                              return;
+                            }
+                          }
+                          setFiltroAreaConocimiento(area.id);
+                        }}
                       >
                         <Text style={[
                           styles.filtroOpcionTexto,
-                          filtroRol === rol.id && { color: rol.color, fontWeight: 'bold' }
+                          filtroAreaConocimiento === area.id && { color: area.color, fontWeight: 'bold' }
                         ]}>
-                          {rol.label}
+                          {area.label}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </View>
+              )}
 
-                {/* Filtro de carrera/área (solo para estudiantes) */}
-                {filtroRol === 'estudiante' && perfilVocacional && (
-                  <View style={styles.filtroSeccion}>
-                    <Text style={styles.filtroTitulo}>
-                      Filtrar por {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'Carrera' : 'Área'}
-                    </Text>
-                    <View style={styles.filtroOpciones}>
-                      <TouchableOpacity
-                        style={[
-                          styles.filtroOpcion,
-                          { borderColor: '#4A90E2' },
-                          filtroCarrera === 'todas' && { backgroundColor: '#4A90E220' }
-                        ]}
-                        onPress={() => setFiltroCarrera('todas')}
-                      >
-                        <Text style={[
-                          styles.filtroOpcionTexto,
-                          filtroCarrera === 'todas' && { color: '#4A90E2', fontWeight: 'bold' }
-                        ]}>
-                          Todas las {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carreras' : 'áreas'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.filtroOpcion,
-                          { borderColor: '#50E3C2' },
-                          filtroCarrera === 'misma' && { backgroundColor: '#50E3C220' }
-                        ]}
-                        onPress={() => setFiltroCarrera('misma')}
-                      >
-                        <Text style={[
-                          styles.filtroOpcionTexto,
-                          filtroCarrera === 'misma' && { color: '#50E3C2', fontWeight: 'bold' }
-                        ]}>
-                          De mi misma {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carrera' : 'área'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.filtroOpcion,
-                          { borderColor: '#FFCE56' },
-                          filtroCarrera === 'otra' && { backgroundColor: '#FFCE5620' }
-                        ]}
-                        onPress={() => setFiltroCarrera('otra')}
-                      >
-                        <Text style={[
-                          styles.filtroOpcionTexto,
-                          filtroCarrera === 'otra' && { color: '#FFCE56', fontWeight: 'bold' }
-                        ]}>
-                          De otra {perfilVocacional.perfil_administrativo > perfilVocacional.perfil_tecnologico ? 'carrera' : 'área'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-                {/* Filtro de carrera para egresados */}
-                {filtroRol === 'egresado' && perfilVocacional && (
-                  <View style={styles.filtroSeccion}>
-                    <Text style={styles.filtroTitulo}>Filtrar por Carrera</Text>
-                    <View style={styles.filtroOpciones}>
-                      <TouchableOpacity
-                        style={[
-                          styles.filtroOpcion,
-                          { borderColor: '#50E3C2' },
-                          filtroCarrera === 'todas' && { backgroundColor: '#50E3C220' }
-                        ]}
-                        onPress={() => setFiltroCarrera('todas')}
-                      >
-                        <Text style={[
-                          styles.filtroOpcionTexto,
-                          filtroCarrera === 'todas' && { color: '#50E3C2', fontWeight: 'bold' }
-                        ]}>
-                          Todas las carreras
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.filtroOpcion,
-                          { borderColor: '#9B59B6' },
-                          filtroCarrera === 'misma' && { backgroundColor: '#9B59B620' }
-                        ]}
-                        onPress={() => setFiltroCarrera('misma')}
-                      >
-                        <Text style={[
-                          styles.filtroOpcionTexto,
-                          filtroCarrera === 'misma' && { color: '#9B59B6', fontWeight: 'bold' }
-                        ]}>
-                          De mi misma carrera
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.filtroOpcion,
-                          { borderColor: '#FF6B6B' },
-                          filtroCarrera === 'otra' && { backgroundColor: '#FF6B6B20' }
-                        ]}
-                        onPress={() => setFiltroCarrera('otra')}
-                      >
-                        <Text style={[
-                          styles.filtroOpcionTexto,
-                          filtroCarrera === 'otra' && { color: '#FF6B6B', fontWeight: 'bold' }
-                        ]}>
-                          De otras carreras
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-
-                {!perfilVocacional && (filtroRol === 'estudiante' || filtroRol === 'egresado') && (
-                  <View style={styles.filtroAdvertencia}>
-                    <Icon name="info" size={20} color="#FFCE56" />
-                    <Text style={styles.filtroAdvertenciaTexto}>
-                      Completa el test vocacional para habilitar filtros por carrera
-                    </Text>
-                  </View>
-                )}
-
-                <View style={styles.modalAcciones}>
-                  <TouchableOpacity 
-                    style={styles.modalBotonAplicar}
-                    onPress={aplicarFiltros}
-                  >
-                    <Text style={styles.modalBotonTexto}>Aplicar Filtros</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.modalBotonLimpiar}
-                    onPress={() => {
-                      setFiltroRol('todos');
-                      setFiltroCarrera('todas');
-                    }}
-                  >
-                    <Text style={styles.modalBotonTextoLimpiar}>Limpiar Filtros</Text>
-                  </TouchableOpacity>
+              {/* Advertencias */}
+              {!perfilVocacional && ['explorando', 'estudiante', 'egresado'].includes(filtroRol) && (
+                <View style={styles.filtroAdvertencia}>
+                  <Icon name="info" size={20} color="#FFCE56" />
+                  <Text style={styles.filtroAdvertenciaTexto}>
+                    Completa el test vocacional para habilitar filtros por perfil vocacional
+                  </Text>
                 </View>
-              </>
-            }
-            showsVerticalScrollIndicator={false}
-          />
-        </LinearGradient>
-      </View>
-    </Modal>
-  );
+              )}
+
+              {/* Para docentes */}
+              {filtroRol === 'docente' && (
+                <View style={styles.filtroInfo}>
+                  <Icon name="school" size={20} color="#4A90E2" />
+                  <Text style={styles.filtroInfoTexto}>
+                    Los docentes se filtran por área de conocimiento especializada
+                  </Text>
+                </View>
+              )}
+
+              {/* Para administradores */}
+              {filtroRol === 'admin' && (
+                <View style={styles.filtroInfo}>
+                  <Icon name="admin-panel-settings" size={20} color="#9B59B6" />
+                  <Text style={styles.filtroInfoTexto}>
+                    Como administrador, puedes ver todos los usuarios sin filtros adicionales
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.modalAcciones}>
+                <TouchableOpacity 
+                  style={styles.modalBotonAplicar}
+                  onPress={aplicarFiltros}
+                >
+                  <Text style={styles.modalBotonTexto}>Aplicar Filtros</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.modalBotonLimpiar}
+                  onPress={() => {
+                    setFiltroRol('todos');
+                    setFiltroCarrera('todas');
+                    setFiltroPerfilVocacional('todos');
+                    setFiltroAreaConocimiento('todas');
+                  }}
+                >
+                  <Text style={styles.modalBotonTextoLimpiar}>Limpiar Todos los Filtros</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      </LinearGradient>
+    </View>
+  </Modal>
+);
 
   // Determinar qué contenido mostrar
   const renderContenido = () => {
@@ -1232,4 +1463,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  filtroOpcionesGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+  justifyContent: 'space-between',
+},
+filtroOpcionPequena: {
+  flex: 1,
+  minWidth: '30%',
+  padding: 10,
+  borderRadius: 8,
+  borderWidth: 1,
+  backgroundColor: 'rgba(255,255,255,0.05)',
+  alignItems: 'center',
+  marginBottom: 8,
+},
+filtroOpcionTextoPequena: {
+  color: 'rgba(255,255,255,0.8)',
+  fontSize: 12,
+  fontWeight: '500',
+  textAlign: 'center',
+},
+filtroSubtitulo: {
+  color: 'rgba(255,255,255,0.6)',
+  fontSize: 12,
+  marginBottom: 10,
+  fontStyle: 'italic',
+},
+filtroInfo: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(74,144,226,0.1)',
+  borderRadius: 12,
+  padding: 15,
+  marginBottom: 20,
+  borderWidth: 1,
+  borderColor: '#4A90E2',
+  gap: 10,
+},
+filtroInfoTexto: {
+  color: '#4A90E2',
+  fontSize: 14,
+  flex: 1,
+  lineHeight: 20,
+},
 });

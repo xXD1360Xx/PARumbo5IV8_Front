@@ -584,15 +584,17 @@ const cerrarSesionGoogle = async () => {
           <View style={styles.contenedorInfo}>
             <Text style={styles.tituloInfo}>Información de la cuenta</Text>
             
-            <View style={styles.itemInfo}>
-              <Text style={styles.labelInfo}>Rol:</Text>
-              <Text style={styles.valorInfo}>
-                {datosUsuario.rol === 'admin' ? 'Administrador' : 
-                 datosUsuario.rol === 'student' ? 'Estudiante' :
-                 datosUsuario.rol === 'teacher' ? 'Docente' :
-                 datosUsuario.rol === 'orientator' ? 'Orientador' : 'Usuario'}
-              </Text>
-            </View>
+          <View style={styles.itemInfo}>
+            <Text style={styles.labelInfo}>Rol:</Text>
+            <Text style={styles.valorInfo}>
+              {datosUsuario.rol === 'admin' ? '👑 Administrador' : 
+              datosUsuario.rol === 'explorando' || datosUsuario.rol === null || datosUsuario.rol === 'user' ? '🔍 Estudiante explorando' :
+              datosUsuario.rol === 'estudiante' ? '🎓 Estudiante universitario' :
+              datosUsuario.rol === 'egresado' ? '🎉 Egresado' :
+              datosUsuario.rol === 'docente'  || datosUsuario.rol === 'profesor' ? '👩‍🏫 Docente' :
+              '🔍 Estudiante explorando'}  // Valor por defecto
+            </Text>
+          </View>
             
             <View style={styles.itemInfo}>
               <Text style={styles.labelInfo}>Miembro desde:</Text>

@@ -6,7 +6,7 @@ const obtenerURLBase = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  return 'https://site--parumbo5iv8--p9qqmcg2z56m.code.run/api';
+  return 'https://site--rumbopa--ljsv6wvvt8wd.code.run/api';
 };
 
 const URL_BASE_API = obtenerURLBase();
@@ -23,7 +23,7 @@ const obtenerToken = async () => {
   }
 };
 
-// Función auxiliar para obtener headers
+// Función auxiliar para obtener headers - VERSIÓN MEJORADA
 const obtenerHeaders = async (contenidoJSON = true) => {
   try {
     const token = await obtenerToken();
@@ -34,8 +34,17 @@ const obtenerHeaders = async (contenidoJSON = true) => {
         }
       : {};
     
-    if (token && token.trim() !== '') {
+    // ⚠️ IMPORTANTE: Verificar que el token sea válido antes de añadirlo
+    if (token && 
+        token.trim() !== '' && 
+        token !== 'null' && 
+        token !== 'undefined' &&
+        token !== 'Bearer null' && 
+        token !== 'Bearer undefined') {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Token añadido a headers:', token.substring(0, 20) + '...');
+    } else {
+      console.log('🔑 Sin token - headers públicos');
     }
     
     return headers;
@@ -171,8 +180,9 @@ enviarCorreo: async (correo, codigo, modo) => {
   }
 },
 
-restablecerContrasena: async (correo, codigo, nuevaContrasena) => {
+restablecerContrasena: async (correo, nuevaContrasena) => {
   console.log('🔍 [API] restablecerContrasena →', `${URL_BASE_API}/auth/restablecer-contrasena`);
+  console.log('📝 Datos:', { correo, nuevaContrasena: '***' });
   
   try {
     const respuesta = await fetch(`${URL_BASE_API}/auth/restablecer-contrasena`, {
@@ -181,7 +191,7 @@ restablecerContrasena: async (correo, codigo, nuevaContrasena) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ correo, codigo, nuevaContrasena }),
+      body: JSON.stringify({ correo, nuevaContrasena }),
     });
     
     console.log('📡 [API] restablecerContrasena Status:', respuesta.status);
@@ -718,12 +728,29 @@ restablecerContrasena: async (correo, codigo, nuevaContrasena) => {
     }
   },
 
-  // 🔧 NUEVA FUNCIÓN: Verificar disponibilidad de username
+  // En tu servicio API, agrega:
+buscarUsuariosConFiltros: async (filtros) => {
+  try {
+    console.log('📤 Enviando filtros:', filtros);
+    const response = await api.post('/usuario/buscar-con-filtros', filtros);
+    console.log('📥 Respuesta con filtros:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ Error en buscarUsuariosConFiltros:', error.response?.data || error.message);
+    throw error;
+  }
+},
+
   verificarUsername: async (username) => {
     console.log('🔍 [API] verificarUsername →', `${URL_BASE_API}/usuario/verificar-username`);
+    console.log('📝 Username a verificar:', username);
     
     try {
+      // Usar obtenerHeaders() ya corregido
       const headers = await obtenerHeaders();
+      
+      console.log('🔑 Headers para verificarUsername:', headers);
+      
       const respuesta = await fetch(`${URL_BASE_API}/usuario/verificar-username`, {
         method: 'POST',
         headers,
@@ -731,12 +758,30 @@ restablecerContrasena: async (correo, codigo, nuevaContrasena) => {
       });
       
       console.log('📡 [API] verificarUsername Status:', respuesta.status);
-      const datos = await respuesta.json();
+      
+      // Para debug, mostrar la respuesta completa
+      const textoRespuesta = await respuesta.text();
+      console.log('📡 [API] verificarUsername Respuesta RAW:', textoRespuesta);
+      
+      let datos;
+      try {
+        datos = JSON.parse(textoRespuesta);
+        console.log('📡 [API] verificarUsername Respuesta JSON:', datos);
+      } catch (jsonError) {
+        console.error('❌ Error parseando JSON de verificarUsername:', jsonError.message);
+        return { 
+          exito: false, 
+          disponible: false,
+          error: 'Error en la respuesta del servidor'
+        };
+      }
+      
       return datos;
     } catch (error) {
       console.error('❌ [API] verificarUsername Error:', error.message);
       return { 
         exito: false, 
+        disponible: false,
         error: 'Error de conexión'
       };
     }
