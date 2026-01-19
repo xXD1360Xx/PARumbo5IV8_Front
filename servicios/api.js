@@ -60,7 +60,6 @@ const obtenerHeaders = async (contenidoJSON = true) => {
 export const servicioAPI = {
   // 🔐 AUTENTICACIÓN
 
-// En tu api.js - Servicio de API
 enviarCorreo: async (correo, codigo, modo) => {
   console.log('🔍 [API] enviarCorreo →', `${URL_BASE_API}/auth/enviarCorreo`);
   console.log('📝 Datos a enviar:', { correo, codigo, modo });
@@ -147,32 +146,6 @@ verificarCodigo: async (correo, codigo) => {
     return datos;
   } catch (error) {
     console.error('❌ [API] verificarCodigo Error:', error.message);
-    return { 
-      exito: false, 
-      error: 'Error de conexión al servidor'
-    };
-  }
-},
-
-// 📧 FUNCIONES DE ENVÍO DE CÓDIGO
-enviarCorreo: async (correo, codigo, modo) => {
-  console.log('🔍 [API] enviarCorreo →', `${URL_BASE_API}/auth/enviarCorreo`);
-  
-  try {
-    const respuesta = await fetch(`${URL_BASE_API}/auth/enviarCorreo`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ correo, codigo, modo }),
-    });
-    
-    console.log('📡 [API] enviarCorreo Status:', respuesta.status);
-    const datos = await respuesta.json();
-    return datos;
-  } catch (error) {
-    console.error('❌ [API] enviarCorreo Error:', error.message);
     return { 
       exito: false, 
       error: 'Error de conexión al servidor'
@@ -728,16 +701,46 @@ restablecerContrasena: async (correo, nuevaContrasena) => {
     }
   },
 
-  // En tu servicio API, agrega:
 buscarUsuariosConFiltros: async (filtros) => {
+  console.log('🔍 [API] buscarUsuariosConFiltros →', `${URL_BASE_API}/usuario/buscar-con-filtros`);
+  console.log('📝 Filtros a enviar:', filtros);
+  
   try {
-    console.log('📤 Enviando filtros:', filtros);
-    const response = await api.post('/usuario/buscar-con-filtros', filtros);
-    console.log('📥 Respuesta con filtros:', response.data);
-    return response.data;
+    const headers = await obtenerHeaders();
+    
+    const respuesta = await fetch(`${URL_BASE_API}/usuario/buscar-con-filtros`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(filtros),
+    });
+    
+    console.log('📡 [API] buscarUsuariosConFiltros Status:', respuesta.status);
+    
+    // Para debug, mostrar la respuesta completa
+    const textoRespuesta = await respuesta.text();
+    console.log('📡 [API] buscarUsuariosConFiltros Respuesta RAW:', textoRespuesta);
+    
+    let datos;
+    try {
+      datos = JSON.parse(textoRespuesta);
+      console.log('📡 [API] buscarUsuariosConFiltros Respuesta JSON:', datos);
+    } catch (jsonError) {
+      console.error('❌ Error parseando JSON de buscarUsuariosConFiltros:', jsonError.message);
+      return { 
+        exito: false, 
+        usuarios: [],
+        error: 'Error en la respuesta del servidor'
+      };
+    }
+    
+    return datos;
   } catch (error) {
-    console.error('❌ Error en buscarUsuariosConFiltros:', error.response?.data || error.message);
-    throw error;
+    console.error('❌ [API] buscarUsuariosConFiltros Error:', error.message);
+    return { 
+      exito: false, 
+      usuarios: [],
+      error: 'Error de conexión al servidor'
+    };
   }
 },
 
