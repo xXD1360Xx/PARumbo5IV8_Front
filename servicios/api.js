@@ -6,7 +6,7 @@ const obtenerURLBase = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  return 'https://site--rumbopa--ljsv6wvvt8wd.code.run/api';
+  return 'https://site--rumboback--qjqb6txv8fxg.code.run/api';
 };
 
 const URL_BASE_API = obtenerURLBase();
