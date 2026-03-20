@@ -6,7 +6,7 @@ const obtenerURLBase = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  return 'https://site--rumbopa--ljsv6wvvt8wd.code.run/api';
+  return 'https://site--rumbo-movil--jjd2tnx5nqkr.code.run/api';
 };
 
 const URL_BASE_API = obtenerURLBase();
@@ -785,6 +785,153 @@ buscarUsuariosConFiltros: async (filtros) => {
       return { 
         exito: false, 
         disponible: false,
+        error: 'Error de conexión'
+      };
+    }
+  },
+
+
+    // ==================== NOTIFICACIONES ====================
+
+  obtenerNotificaciones: async (pagina = 1, limite = 20) => {
+    const url = `${URL_BASE_API}/notificaciones?pagina=${pagina}&limite=${limite}`;
+    console.log('🔍 [API] obtenerNotificaciones →', url);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      
+      console.log('📡 [API] obtenerNotificaciones Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] obtenerNotificaciones Error:', error.message);
+      return { 
+        exito: false, 
+        error: 'Error de conexión',
+        notificaciones: [],
+        total: 0
+      };
+    }
+  },
+
+  marcarNotificacionLeida: async (notificacionId) => {
+    const url = `${URL_BASE_API}/notificaciones/${notificacionId}/leer`;
+    console.log('🔍 [API] marcarNotificacionLeida →', url);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(url, {
+        method: 'PUT',
+        headers,
+      });
+      
+      console.log('📡 [API] marcarNotificacionLeida Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] marcarNotificacionLeida Error:', error.message);
+      return { 
+        exito: false, 
+        error: 'Error de conexión'
+      };
+    }
+  },
+
+  marcarTodasLeidas: async () => {
+    const url = `${URL_BASE_API}/notificaciones/leer-todas`;
+    console.log('🔍 [API] marcarTodasLeidas →', url);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(url, {
+        method: 'PUT',
+        headers,
+      });
+      
+      console.log('📡 [API] marcarTodasLeidas Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] marcarTodasLeidas Error:', error.message);
+      return { 
+        exito: false, 
+        error: 'Error de conexión'
+      };
+    }
+  },
+
+  eliminarNotificacion: async (notificacionId) => {
+    const url = `${URL_BASE_API}/notificaciones/${notificacionId}`;
+    console.log('🔍 [API] eliminarNotificacion →', url);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(url, {
+        method: 'DELETE',
+        headers,
+      });
+      
+      console.log('📡 [API] eliminarNotificacion Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] eliminarNotificacion Error:', error.message);
+      return { 
+        exito: false, 
+        error: 'Error de conexión'
+      };
+    }
+  },
+
+  // ==================== CONFIGURACIÓN DE NOTIFICACIONES ====================
+
+  obtenerConfigNotificaciones: async () => {
+    const url = `${URL_BASE_API}/usuario/configuracion-notificaciones`;
+    console.log('🔍 [API] obtenerConfigNotificaciones →', url);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      
+      console.log('📡 [API] obtenerConfigNotificaciones Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] obtenerConfigNotificaciones Error:', error.message);
+      return { 
+        exito: false, 
+        error: 'Error de conexión'
+      };
+    }
+  },
+
+  actualizarConfigNotificaciones: async (config) => {
+    const url = `${URL_BASE_API}/usuario/configuracion-notificaciones`;
+    console.log('🔍 [API] actualizarConfigNotificaciones →', url);
+    console.log('📝 Datos a enviar:', config);
+    
+    try {
+      const headers = await obtenerHeaders();
+      const respuesta = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(config),
+      });
+      
+      console.log('📡 [API] actualizarConfigNotificaciones Status:', respuesta.status);
+      const datos = await respuesta.json();
+      return datos;
+    } catch (error) {
+      console.error('❌ [API] actualizarConfigNotificaciones Error:', error.message);
+      return { 
+        exito: false, 
         error: 'Error de conexión'
       };
     }

@@ -20,6 +20,10 @@ import PantallaEditar from './PantallasMenu/PantallaEditar';
 import PantallaEncontrado from './PantallasMenu/PantallaEncontrado';
 
 
+// Pantallas de notificaciones (protegidas)
+import PantallaNotificaciones from './PantallasMenu/PantallaNotificaciones';
+import PantallaConfiguracionNotificaciones from './PantallasMenu/PantallaConfiguracionNotificaciones';
+
 
 const Stack = createNativeStackNavigator();
 
@@ -185,6 +189,18 @@ export default function AppNavegacion() {
             name="UsuarioEncontrado"
             component={PantallaEncontrado}
           />
+
+          <Stack.Screen
+            name="Notificaciones"
+            component={PantallaNotificaciones}
+          />
+
+          <Stack.Screen
+            name="ConfiguracionNotificaciones"
+            component={PantallaConfiguracionNotificaciones} 
+          />
+
+
         </Stack.Navigator>
       </NavigationContainer>
     </AuthContext.Provider>
