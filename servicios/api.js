@@ -6,12 +6,16 @@ const obtenerURLBase = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-<<<<<<< HEAD
   return 'https://site--rumbo-movil--jjd2tnx5nqkr.code.run/api';
-=======
-  return 'https://site--rumboback--qjqb6txv8fxg.code.run/api';
->>>>>>> bbc2a7e0ae031f42f3bca7ca2db7abc18e7a792a
 };
+
+
+
+
+
+
+
+
 
 const URL_BASE_API = obtenerURLBase();
 console.log('🔗 [API] URL base:', URL_BASE_API);
