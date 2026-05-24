@@ -6,7 +6,7 @@ const obtenerURLBase = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  return 'https://site--rumbo-movil--jjd2tnx5nqkr.code.run/api';
+  return 'https://site--rumboapp--hlm7fxqrj6wz.code.run/api';
 };
 
 
@@ -753,48 +753,21 @@ buscarUsuariosConFiltros: async (filtros) => {
 },
 
   verificarUsername: async (username) => {
-    console.log('🔍 [API] verificarUsername →', `${URL_BASE_API}/usuario/verificar-username`);
-    console.log('📝 Username a verificar:', username);
+    const url = `${URL_BASE_API}/auth/verificar-username/${encodeURIComponent(username)}`;
+    console.log('🔍 [API] verificarUsername →', url);
     
     try {
-      // Usar obtenerHeaders() ya corregido
-      const headers = await obtenerHeaders();
-      
-      console.log('🔑 Headers para verificarUsername:', headers);
-      
-      const respuesta = await fetch(`${URL_BASE_API}/usuario/verificar-username`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ username }),
+      const respuesta = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
       });
       
-      console.log('📡 [API] verificarUsername Status:', respuesta.status);
-      
-      // Para debug, mostrar la respuesta completa
-      const textoRespuesta = await respuesta.text();
-      console.log('📡 [API] verificarUsername Respuesta RAW:', textoRespuesta);
-      
-      let datos;
-      try {
-        datos = JSON.parse(textoRespuesta);
-        console.log('📡 [API] verificarUsername Respuesta JSON:', datos);
-      } catch (jsonError) {
-        console.error('❌ Error parseando JSON de verificarUsername:', jsonError.message);
-        return { 
-          exito: false, 
-          disponible: false,
-          error: 'Error en la respuesta del servidor'
-        };
-      }
-      
+      const datos = await respuesta.json();
+      console.log('📡 [API] verificarUsername Respuesta:', datos);
       return datos;
     } catch (error) {
       console.error('❌ [API] verificarUsername Error:', error.message);
-      return { 
-        exito: false, 
-        disponible: false,
-        error: 'Error de conexión'
-      };
+      return { exito: false, disponible: false, error: 'Error de conexión' };
     }
   },
 

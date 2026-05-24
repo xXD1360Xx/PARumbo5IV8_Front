@@ -382,15 +382,28 @@ export default function PantallaResultados({ route, navigation }) {
     ];
 
     // Obtener top carreras desde resultados_completos
+    // Obtener top carreras desde el campo específico que envía el backend
     let topCarreras = [];
     try {
-      if (resultadosVocacional.resultados_completos && Array.isArray(resultadosVocacional.resultados_completos)) {
+      // Primero intentar con el campo top_carreras (recomendado)
+      if (resultadosVocacional.top_carreras && Array.isArray(resultadosVocacional.top_carreras)) {
+        topCarreras = resultadosVocacional.top_carreras.slice(0,5);
+      } 
+      // Fallback: si está vacío, intentar desde resultados_completos (por compatibilidad)
+      else if (resultadosVocacional.resultados_completos && Array.isArray(resultadosVocacional.resultados_completos)) {
         topCarreras = resultadosVocacional.resultados_completos
-          .sort((a, b) => (b.puntuacion || 0) - (a.puntuacion || 0))
-          .slice(0, 5); // Top 5 carreras
+          .sort((a,b) => (b.puntuacion || 0) - (a.puntuacion || 0))
+          .slice(0,5);
       }
-    } catch (e) {
-      console.log('⚠️ Error obteniendo top carreras:', e);
+      
+      // Asegurar que cada carrera tenga al menos un nombre legible
+      topCarreras = topCarreras.map((carrera, idx) => ({
+        ...carrera,
+        nombre: carrera.nombre || `Carrera ${idx+1}`
+      }));
+    } catch(e) {
+      console.log('Error procesando top carreras:', e);
+      topCarreras = [];
     }
 
     return (

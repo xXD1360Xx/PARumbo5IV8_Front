@@ -183,6 +183,10 @@ export default function PantallaPrincipal({ navigation, route }) {
     navigation.navigate('Notificaciones');
   };
 
+  const irAPreguntasFrecuentes = () => {
+    navigation.navigate('Faq'); // o 'PreguntasFrecuentes' según tu configuración
+  };
+
   // Abrir modal para foto de perfil
   const abrirOpcionesFotoPerfil = () => {
     setModalFotoVisible(true);
@@ -461,6 +465,11 @@ export default function PantallaPrincipal({ navigation, route }) {
             </View>
           </TouchableOpacity>
 
+          {/* Botón de preguntas frecuentes */}
+          <TouchableOpacity style={styles.faqBoton} onPress={irAPreguntasFrecuentes}>
+            <Text style={styles.faqIcono}>❓</Text>
+          </TouchableOpacity>
+
           {/* Ícono de notificaciones con badge */}
           <TouchableOpacity style={styles.notificacionesBoton} onPress={irANotificaciones}>
             <Text style={styles.notificacionesIcono}>🔔</Text>
@@ -712,4 +721,17 @@ const styles = StyleSheet.create({
   modalOpcionTextoEliminar: { color: '#FF5252', fontSize: 16, fontWeight: '500', flex: 1 },
   modalBotonCerrar: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 15, padding: 18, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   modalBotonCerrarTexto: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+
+
+  //preguntas frecuentes
+  faqBoton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+  },
+  faqIcono: {
+    fontSize: 30,
+    color: '#ffffff',
+  },
 });

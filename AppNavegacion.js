@@ -18,6 +18,7 @@ import PantallaResultados from './PantallasMenu/PantallaResultados';
 import PantallaBuscarUsuario from './PantallasMenu/PantallaBuscarUsuario';
 import PantallaEditar from './PantallasMenu/PantallaEditar';
 import PantallaEncontrado from './PantallasMenu/PantallaEncontrado';
+import PantallaPreguntas from './PantallasMenu/PantallaPreguntas';
 
 
 // Pantallas de notificaciones (protegidas)
@@ -198,6 +199,11 @@ export default function AppNavegacion() {
           <Stack.Screen
             name="ConfiguracionNotificaciones"
             component={PantallaConfiguracionNotificaciones} 
+          />
+
+          <Stack.Screen
+            name="Faq"
+            component={PantallaPreguntas} 
           />
 
 
