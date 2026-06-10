@@ -35,6 +35,7 @@ const obtenerToken = async () => {
 const obtenerHeaders = async (contenidoJSON = true) => {
   try {
     const token = await obtenerToken();
+    console.log('🔑 Token obtenido:', token ? `${token.substring(0,20)}...` : 'null');
     const headers = contenidoJSON 
       ? {
           'Content-Type': 'application/json',
@@ -184,6 +185,22 @@ restablecerContrasena: async (correo, nuevaContrasena) => {
       exito: false, 
       error: 'Error de conexión al servidor'
     };
+  }
+},
+
+obtenerTestsDisponibles: async () => {
+  const url = `${URL_BASE_API}/tests/`;
+  console.log('🔍 [API] obtenerTestsDisponibles →', url);
+  try {
+    const headers = await obtenerHeaders();  // <- esto añade el token
+    console.log('📤 Headers enviados:', JSON.stringify(headers, null, 2));
+    const respuesta = await fetch(url, { method: 'GET', headers });
+    const datos = await respuesta.json();
+    console.log('📡 Respuesta:', datos);
+    return datos;
+  } catch (error) {
+    console.error('❌ Error:', error);
+    return { exito: false, data: [] };
   }
 },
 

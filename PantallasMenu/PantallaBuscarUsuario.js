@@ -394,8 +394,6 @@ const aplicarFiltros = () => {
       case 'explorando': return { icono: '🔍', color: '#50E3C2', label: 'Explorando' };
       case 'estudiante': return { icono: '🎓', color: '#4A90E2', label: 'Universitario' };
       case 'egresado': return { icono: '🎉', color: '#FF6B6B', label: 'Egresado' };
-      case 'docente': return { icono: '👩‍🏫', color: '#FFCE56', label: 'Docente' };
-      case 'profesor': return { icono: '👨‍🏫', color: '#FFCE56', label: 'Docente' };
       default: return { icono: '🔍', color: '#50E3C2', label: 'Explorando' }; // Valor por defecto
       }
     };
@@ -528,7 +526,6 @@ const renderModalFiltros = () => (
                     { id: 'explorando', label: '🔍 Explorando', color: '#50E3C2' },
                     { id: 'estudiante', label: '🎓 Universitarios', color: '#4A90E2' },
                     { id: 'egresado', label: '🎉 Egresados', color: '#9B59B6' },
-                    { id: 'docente', label: '👨‍🏫 Docentes', color: '#FFCE56' },
                     { id: 'admin', label: '👑 Administradores', color: '#FF6B6B' },
                   ].map((rol) => (
                     <TouchableOpacity
@@ -716,8 +713,8 @@ const renderModalFiltros = () => (
                 </View>
               )}
 
-              {/* Filtro de área de conocimiento (para explorando, estudiante, egresado y docente) */}
-              {['explorando', 'estudiante', 'egresado', 'docente'].includes(filtroRol) && (
+              {/* Filtro de área de conocimiento (para explorando, estudiante y egresado) */}
+              {['explorando', 'estudiante', 'egresado'].includes(filtroRol) && (
                 <View style={styles.filtroSeccion}>
                   <Text style={styles.filtroTitulo}>Filtrar por Área de Conocimiento</Text>
                   <View style={styles.filtroOpciones}>
@@ -785,15 +782,6 @@ const renderModalFiltros = () => (
                 </View>
               )}
 
-              {/* Para docentes */}
-              {filtroRol === 'docente' && (
-                <View style={styles.filtroInfo}>
-                  <Icon name="school" size={20} color="#4A90E2" />
-                  <Text style={styles.filtroInfoTexto}>
-                    Los docentes se filtran por área de conocimiento especializada
-                  </Text>
-                </View>
-              )}
 
               {/* Para administradores */}
               {filtroRol === 'admin' && (

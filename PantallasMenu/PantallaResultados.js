@@ -182,52 +182,74 @@ export default function PantallaResultados({ route, navigation }) {
     }
   }, [obtenerUsuarioActual]);
 
+const obtenerIconoPorTitulo = (titulo) => {
+  if (!titulo) return '📝';
+  const t = titulo.toLowerCase();
+  if (t.includes('matemáticas')) return '🧮';
+  if (t.includes('médico-biológicas')) return '🧬';
+  if (t.includes('ingeniería')) return '⚙️';
+  if (t.includes('sociales')) return '📚';
+  if (t.includes('arte')) return '🎨';
+  if (t.includes('económico')) return '📈';
+  return '📝';
+};
+
+
   // Cargar resultados de tests de conocimiento
-  const cargarTestsConocimiento = useCallback(async () => {
-    try {
-      const id = await obtenerUsuarioActual();
-      console.log('📚 Cargando tests de conocimiento para ID:', id);
-      
-      if (!id) {
-        console.log('⚠️ No se pudo obtener ID de usuario');
-        setResultadosTests(testsDisponibles.map(test => ({ ...test, completado: false })));
-        return;
-      }
-      
-      const respuesta = await servicioAPI.obtenerMisResultados();
-      console.log('📊 Respuesta tests conocimiento:', respuesta);
-      if (respuesta.exito && respuesta.data && Array.isArray(respuesta.data)) {
-        const resultadosUsuario = respuesta.data.filter(item => 
-          item.user_id === id || 
-          item.usuario_id === id
-        );
-        
-        console.log(`✅ ${resultadosUsuario.length} tests encontrados`);
-        
-        const testsActualizados = testsDisponibles.map(test => {
-          const resultado = resultadosUsuario.find(r => 
-            r.test_id === test.id 
-          );
-          
-          return {
-            ...test,
-            completado: !!resultado,
-            puntuacion: resultado?.score || 0,
-            fecha: resultado?.completed_at || resultado?.created_at,
-            resultadoData: resultado
-          };
-        });
-        
-        setResultadosTests(testsActualizados);
-      } else {
-        console.log('ℹ️ No hay tests de conocimiento');
-        setResultadosTests(testsDisponibles.map(test => ({ ...test, completado: false })));
-      }
-    } catch (error) {
-      console.error('❌ Error cargando tests:', error);
-      setResultadosTests(testsDisponibles.map(test => ({ ...test, completado: false })));
+const cargarTestsConocimiento = useCallback(async () => {
+  try {
+    const id = await obtenerUsuarioActual();
+    if (!id) {
+      setResultadosTests([]);
+      return;
     }
-  }, [obtenerUsuarioActual]);
+
+    // Obtener todos los tests disponibles desde el backend
+    const testsResp = await servicioAPI.obtenerTestsDisponibles();
+    let todosLosTests = [];
+    if (testsResp?.exito && Array.isArray(testsResp.data)) {
+      todosLosTests = testsResp.data;
+      console.log('📚 Tests desde backend:', todosLosTests);
+    } else {
+      // Fallback a datos estáticos (solo por si acaso)
+      todosLosTests = testsDisponibles.map((t, idx) => ({ id: idx+1, ...t }));
+    }
+
+    // Filtrar SOLO los tests de conocimiento (excluir el vocacional/Ikigai)
+    const testsConocimiento = todosLosTests.filter(
+      test => !test.nombre.toLowerCase().includes('ikigai') && 
+               !test.nombre.toLowerCase().includes('vocacional')
+    );
+
+    // Obtener resultados del usuario
+    const respuesta = await servicioAPI.obtenerMisResultados();
+    let resultadosUsuario = [];
+    if (respuesta.exito && Array.isArray(respuesta.data)) {
+      resultadosUsuario = respuesta.data.filter(item => item.user_id === id);
+    }
+
+    // Mapear cada test con su estado completado
+    const testsActualizados = testsConocimiento.map(test => {
+      const resultado = resultadosUsuario.find(r => r.test_id === test.id);
+      return {
+        id: test.id,
+        nombre: test.nombre,
+        descripcion: test.description || 'Test de conocimientos',
+        tiempo: test.estimatedMinutes ? `${test.estimatedMinutes} min` : '15 min',
+        icono: obtenerIconoPorTitulo(test.nombre),
+        completado: !!resultado,
+        puntuacion: resultado?.score || 0,
+        fecha: resultado?.completed_at || resultado?.created_at,
+        resultadoData: resultado
+      };
+    });
+
+    setResultadosTests(testsActualizados);
+    console.log(`✅ ${testsActualizados.filter(t => t.completado).length} de ${testsActualizados.length} tests completados`);
+  } catch (error) {
+    console.error('❌ Error cargando tests:', error);
+  }
+}, [obtenerUsuarioActual]);
 
   // Cargar todos los datos
   const cargarDatos = useCallback(async () => {
@@ -387,20 +409,22 @@ export default function PantallaResultados({ route, navigation }) {
       if (resultadosVocacional.top_carreras && Array.isArray(resultadosVocacional.top_carreras)) {
         topCarreras = resultadosVocacional.top_carreras.slice(0,5).map(carr => ({
           ...carr,
-          nombre: carr.nombre || carr.name || `Carrera ${carr.posicion || ''}`  // 👈 acepta 'name'
+          nombre: carr.nombre || carr.name,
+          puntuacion: carr.puntuacion || carr.compatibility || 0  // 👈 tomar compatibility
         }));
       } 
       else if (resultadosVocacional.resultados_completos && Array.isArray(resultadosVocacional.resultados_completos)) {
         topCarreras = resultadosVocacional.resultados_completos
-          .sort((a,b) => (b.puntuacion || 0) - (a.puntuacion || 0))
+          .sort((a,b) => (b.compatibility || 0) - (a.compatibility || 0))
           .slice(0,5)
           .map(carr => ({
             ...carr,
-            nombre: carr.nombre || carr.name || 'Carrera'
+            nombre: carr.nombre || carr.name,
+            puntuacion: carr.puntuacion || carr.compatibility || 0
           }));
       }
     } catch(e) {
-      console.log('Error procesando top carreras:', e);
+      console.log('Error top carreras:', e);
       topCarreras = [];
     }
 
@@ -546,20 +570,13 @@ export default function PantallaResultados({ route, navigation }) {
 
 
 const renderGraficaRadar = () => {
-  const categorias = [
-    'Matemáticas',
-    'Biológicas', 
-    'Ingeniería y Tecnología',
-    'Sociales y Humanísticas',
-    'Artes y Diseño',
-    'Económicas y Administrativas'
-  ];
-
-  // Obtener valores de los tests
-  const valores = testsDisponibles.map(test => {
-    const testResultado = resultadosTests.find(t => t.id === test.id);
-    return testResultado?.completado ? asegurarNumero(testResultado.puntuacion, 0) : 0;
-  });
+  const categorias = resultadosTests.map(test => test.nombre);
+  const valores = resultadosTests.map(test => test.puntuacion);
+  
+  // Si no hay datos, mostrar mensaje
+  if (resultadosTests.length === 0) {
+    return <Text style={styles.sinDatos}>No hay tests disponibles</Text>;
+  }
 
   // Configuración de la gráfica
   const size = 300; // Tamaño del SVG
@@ -686,34 +703,37 @@ const renderGraficaRadar = () => {
               />
               
               {/* Puntos en los vértices */}
-              {valores.map((valor, index) => {
-                if (valor === 0) return null;
-                const punto = calcularPunto(valor, index);
-                
-                return (
-                  <G key={`punto-${index}`}>
-                    <Circle
-                      cx={punto.x}
-                      cy={punto.y}
-                      r="6"
-                      fill={colores[index % colores.length]}
-                      stroke="#ffffff"
-                      strokeWidth="2"
-                    />
-                    {/* Valor numérico */}
-                    <SvgText
-                      x={punto.x}
-                      y={punto.y - 12}
-                      fill={colores[index % colores.length]}
-                      fontSize="12"
-                      fontWeight="bold"
-                      textAnchor="middle"
-                    >
-                      {valor}%
-                    </SvgText>
-                  </G>
-                );
-              })}
+{valores.map((valor, index) => {
+  if (valor === 0) return null;
+  const punto = calcularPunto(valor, index);
+  // Ángulo del eje actual
+  const anguloRad = index * angulo - Math.PI / 2;
+  // Desplazamiento radial desde el vértice (píxeles). Positivo = hacia afuera, negativo = hacia adentro.
+  const offsetsPorIndice = [18, 18, 24, 22, 32, 26];
+  const offset = offsetsPorIndice[index];
+  const textoX = punto.x + offset * Math.cos(anguloRad);
+  const textoY = punto.y + offset * Math.sin(anguloRad);
+  
+  return (
+    <G key={`porcentaje-${index}`}>
+      {/* Círculo en el vértice */}
+      <Circle cx={punto.x} cy={punto.y} r="6" fill={colores[index % colores.length]} stroke="#ffffff" strokeWidth="2" />
+      {/* Texto del porcentaje desplazado desde el vértice */}
+      <SvgText
+        x={textoX}
+        y={textoY}
+        fill={colores[index % colores.length]}
+        fontSize="12"
+        fontWeight="bold"
+        textAnchor="middle"
+        dominantBaseline="middle"
+      >
+        {Math.round(valor)}%
+
+      </SvgText>
+    </G>
+  );
+})}
             </G>
           )}
 
@@ -818,7 +838,7 @@ const renderGraficaRadar = () => {
                       <View style={styles.puntuacionContainer}>
                         <Text style={styles.puntuacionLabel}>Puntuación:</Text>
                         <Text style={styles.puntuacionValor}>
-                          {test.puntuacion}%
+                          {Math.round(test.puntuacion)}%
                         </Text>
                       </View>
                     )}

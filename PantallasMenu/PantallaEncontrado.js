@@ -205,8 +205,6 @@ export default function PantallaEncontrado({ navigation, route }) {
                     usuario.rol === 'explorando' ? '🔍 Explorando' :
                     usuario.rol === 'estudiante' ? '🎓 Universitario' :
                     usuario.rol === 'egresado' ? '👨‍🎓 Egresado' :
-                    usuario.rol === 'docente' ? '👨‍🏫 Docente' :
-                    usuario.rol === 'profesor' ? '👨‍🏫 Profesor' :
                     usuario.rol || '🔍 Explorando'}
                   </Text>
                 </View>

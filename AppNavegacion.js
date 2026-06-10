@@ -19,6 +19,7 @@ import PantallaBuscarUsuario from './PantallasMenu/PantallaBuscarUsuario';
 import PantallaEditar from './PantallasMenu/PantallaEditar';
 import PantallaEncontrado from './PantallasMenu/PantallaEncontrado';
 import PantallaPreguntas from './PantallasMenu/PantallaPreguntas';
+import PantallaCompletarInfo from './PantallasMenu/PantallaCompletarInfo';
 
 
 // Pantallas de notificaciones (protegidas)
@@ -169,6 +170,11 @@ export default function AppNavegacion() {
           <Stack.Screen
             name="MenuPrincipal"
             component={PantallaPrincipal}
+          />
+
+          <Stack.Screen
+            name="CompletarInfo"
+            component={PantallaCompletarInfo}
           />
 
           <Stack.Screen

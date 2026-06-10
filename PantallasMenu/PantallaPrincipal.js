@@ -52,11 +52,24 @@ export default function PantallaPrincipal({ navigation, route }) {
           foto_perfil: datos.usuario.foto_perfil,
           portada: datos.usuario.portada
         });
+
+        // Redirección si no tiene rol de móvil válido
+        const rolesValidos = ['explorando', 'estudiante', 'egresado', 'admin'];
+        if (!rolesValidos.includes(datos.usuario.rol)) {
+          console.log('⚠️ Rol no válido para móvil:', datos.usuario.rol, '-> Redirigiendo a CompletarInfo');
+          navigation.replace('CompletarInfo');
+          return;
+        }
       } else {
         console.warn('⚠️ No se pudo cargar perfil desde API:', datos.error);
         const usuarioContexto = obtenerUsuario();
         if (usuarioContexto) {
           setUsuarioInfo(usuarioContexto);
+          const rolesValidos = ['explorando', 'estudiante', 'egresado', 'admin'];
+          if (!rolesValidos.includes(usuarioContexto.rol)) {
+            navigation.replace('CompletarInfo');
+            return;
+          }
         }
       }
     } catch (error) {
@@ -64,9 +77,14 @@ export default function PantallaPrincipal({ navigation, route }) {
       const usuarioContexto = obtenerUsuario();
       if (usuarioContexto) {
         setUsuarioInfo(usuarioContexto);
+        const rolesValidos = ['explorando', 'estudiante', 'egresado', 'admin'];
+        if (!rolesValidos.includes(usuarioContexto.rol)) {
+          navigation.replace('CompletarInfo');
+          return;
+        }
       }
     }
-  }, [obtenerUsuario]);
+  }, [obtenerUsuario, navigation]);
 
   // Cargar contador de notificaciones no leídas
   const cargarContadorNotificaciones = useCallback(async () => {
@@ -132,6 +150,14 @@ export default function PantallaPrincipal({ navigation, route }) {
         const usuarioContexto = obtenerUsuario();
         if (usuarioContexto) {
           setUsuarioInfo(usuarioContexto);
+          
+          // Redirección inmediata si el contexto ya tiene un rol no válido para evitar parpadeos
+          const rolesValidos = ['explorando', 'estudiante', 'egresado', 'admin'];
+          if (!rolesValidos.includes(usuarioContexto.rol)) {
+            console.log('⚠️ Redirección rápida desde inicializar a CompletarInfo');
+            navigation.replace('CompletarInfo');
+            return;
+          }
         }
         
         await cargarDatos();
@@ -143,7 +169,7 @@ export default function PantallaPrincipal({ navigation, route }) {
     };
 
     inicializar();
-  }, [cargarDatos, obtenerUsuario]);
+  }, [cargarDatos, obtenerUsuario, navigation]);
 
   // Refrescar
   const onRefresh = useCallback(async () => {
@@ -558,11 +584,10 @@ export default function PantallaPrincipal({ navigation, route }) {
             <View style={styles.itemInfo}>
               <Text style={styles.labelInfo}>Rol:</Text>
               <Text style={styles.valorInfo}>
-                {datosUsuario.rol === 'admin' ? '👑 Administrador' : 
-                 datosUsuario.rol === 'explorando' || datosUsuario.rol === null || datosUsuario.rol === 'user' ? '🔍 Estudiante explorando' :
-                 datosUsuario.rol === 'estudiante' ? '🎓 Estudiante universitario' :
-                 datosUsuario.rol === 'egresado' ? '🎉 Egresado' :
-                 datosUsuario.rol === 'docente' || datosUsuario.rol === 'profesor' ? '👩‍🏫 Docente' : '🔍 Estudiante explorando'}
+                 {datosUsuario.rol === 'admin' ? '👑 Administrador' : 
+                  datosUsuario.rol === 'explorando' ? '🔍 Estudiante explorando' :
+                  datosUsuario.rol === 'estudiante' ? '🎓 Estudiante universitario' :
+                  datosUsuario.rol === 'egresado' ? '🎉 Egresado' : '🔍 Estudiante explorando'}
               </Text>
             </View>
             <View style={styles.itemInfo}>

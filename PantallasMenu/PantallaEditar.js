@@ -46,7 +46,6 @@ export default function PantallaEditar({ navigation }) {
     { id: 'explorando', nombre: 'Estudiante explorando', descripcion: 'Actualmente estudiando la preparatoria' },
     { id: 'estudiante', nombre: 'Estudiante universitario', descripcion: 'Actualmente estudiando la universidad' },
     { id: 'egresado', nombre: 'Egresado', descripcion: 'Ya terminó sus estudios' },
-    { id: 'docente', nombre: 'Docente', descripcion: 'Profesor o instructor' },
     { id: 'admin', nombre: 'Administrador', descripcion: 'Acceso completo al sistema' },
   ];
 
