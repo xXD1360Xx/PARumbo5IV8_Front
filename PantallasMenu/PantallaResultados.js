@@ -23,7 +23,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function PantallaResultados({ route, navigation }) {
   const { usuarioId, nombreUsuario } = route.params || {};
-
+  console.log('🔍 PantallaResultados - route.params:', route.params);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [resultadosVocacional, setResultadosVocacional] = useState(null);
@@ -32,6 +32,7 @@ export default function PantallaResultados({ route, navigation }) {
   const [pestañaActiva, setPestañaActiva] = useState('vocacional');
   const [modalCarreraVisible, setModalCarreraVisible] = useState(false);
   const [carreraSeleccionada, setCarreraSeleccionada] = useState(null);
+  const [esOtroUsuario, setEsOtroUsuario] = useState(false);
 
   const asegurarNumero = useCallback((valor, valorPorDefecto = 0) => {
     if (valor === null || valor === undefined) return valorPorDefecto;
@@ -92,15 +93,10 @@ export default function PantallaResultados({ route, navigation }) {
   ];
 
   // Obtener ID del usuario actual
+  // Obtener ID del usuario autenticado (NO el de parámetros)
   const obtenerUsuarioActual = useCallback(async () => {
     try {
-      // 1. Intentar desde parámetros
-      if (usuarioId) {
-        setUsuarioActualId(usuarioId);
-        return usuarioId;
-      }
-
-      // 2. Intentar desde token
+      // 1. Intentar desde token
       const token = await AsyncStorage.getItem('token');
       if (token) {
         try {
@@ -114,7 +110,7 @@ export default function PantallaResultados({ route, navigation }) {
         }
       }
 
-      // 3. Intentar desde perfil
+      // 2. Intentar desde perfil
       const perfil = await servicioAPI.obtenerMiPerfil();
       if (perfil.exito && perfil.usuario?.id) {
         setUsuarioActualId(perfil.usuario.id);
@@ -126,7 +122,7 @@ export default function PantallaResultados({ route, navigation }) {
       console.error('❌ Error obteniendo usuario:', error);
       return null;
     }
-  }, [usuarioId]);
+  }, []); // ← Elimina la dependencia 'usuarioId'
 
   // Cargar resultados vocacional
   const cargarVocacional = useCallback(async () => {
@@ -273,6 +269,15 @@ export default function PantallaResultados({ route, navigation }) {
   const cargarDatos = useCallback(async () => {
     setCargando(true);
     try {
+      // ✅ OBTENER Y ACTUALIZAR esOtroUsuario
+      const idAutenticado = await obtenerUsuarioActual();
+      const idParametro = route.params?.usuarioId;
+      if (idParametro && idParametro !== idAutenticado) {
+        setEsOtroUsuario(true);
+      } else {
+        setEsOtroUsuario(false);
+      }
+
       await Promise.all([
         cargarVocacional(),
         cargarTestsConocimiento()
@@ -282,7 +287,7 @@ export default function PantallaResultados({ route, navigation }) {
     } finally {
       setCargando(false);
     }
-  }, [cargarVocacional, cargarTestsConocimiento, route.params?.usuarioId]);
+  }, [cargarVocacional, cargarTestsConocimiento, route.params?.usuarioId, obtenerUsuarioActual]);
 
   // Cargar datos al inicio
   useFocusEffect(
@@ -1009,13 +1014,13 @@ export default function PantallaResultados({ route, navigation }) {
         </View>
 
         {/* Mensaje de privacidad si es otro usuario y no hay resultados */}
-        {route.params?.usuarioId && route.params?.usuarioId !== usuarioActualId && !resultadosVocacional && (
+        {/* Mensaje de privacidad si es otro usuario y no hay resultados */}
+        {esOtroUsuario && !resultadosVocacional && (
           <View style={styles.privacidadCard}>
             <Text style={styles.privacidadIcono}>🔒</Text>
             <Text style={styles.privacidadTitulo}>Perfil privado</Text>
             <Text style={styles.privacidadTexto}>
               Este usuario tiene su perfil privado o no ha compartido sus resultados.
-              {!loSigo && ' Sigue a este usuario para ver sus resultados.'}
             </Text>
           </View>
         )}
